@@ -22,7 +22,18 @@ The Claude Code CLI also requires Foundry-specific env vars for Azure
 authentication: `CLAUDE_CODE_USE_FOUNDRY=true`,
 `ANTHROPIC_FOUNDRY_API_KEY`, and `ANTHROPIC_FOUNDRY_BASE_URL`.
 
-Both patches are safe to apply on all platforms — they only activate when
+Patch 3 — Model mapping:
+Maps `CLAUDE_MODEL` from `.env` to `CLAUDE_AGENT_MODEL` so the SDK uses
+the correct model instead of defaulting to claude-sonnet.
+
+Patch 4 — Windows asyncio event loop (ProactorEventLoop):
+On Windows, `asyncio.create_subprocess_exec()` only works with
+`ProactorEventLoop`. When uvicorn runs with `--reload`, the worker process
+may use `SelectorEventLoop` which raises `NotImplementedError` on subprocess
+creation. This patch sets `WindowsProactorEventLoopPolicy` before the event
+loop is created.
+
+All patches are safe to apply on all platforms — they only activate when
 the relevant conditions are detected.
 """
 
@@ -42,9 +53,35 @@ def apply() -> None:
     if _PATCHED:
         return
 
+    print("[patches] Applying SDK patches...")
+    _patch_windows_event_loop()
     _patch_api_credentials()
     _patch_windows_cmd()
     _PATCHED = True
+    print("[patches] All patches applied.")
+
+
+def _patch_windows_event_loop() -> None:
+    """Ensure Windows uses ProactorEventLoop for subprocess support.
+
+    On Windows, asyncio.create_subprocess_exec() requires ProactorEventLoop.
+    When uvicorn runs with --reload, the worker process may use
+    SelectorEventLoop, which raises NotImplementedError when spawning
+    subprocesses (needed by the Claude Agent SDK to start the CLI).
+    """
+    if os.name != "nt":
+        return
+
+    import asyncio
+
+    # Check if the current policy already produces ProactorEventLoop
+    policy = asyncio.get_event_loop_policy()
+    if isinstance(policy, asyncio.WindowsProactorEventLoopPolicy):
+        print("[patches] Windows event loop: ProactorEventLoop already set")
+        return
+
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    print("[patches] Set WindowsProactorEventLoopPolicy (subprocess support)")
 
 
 def _patch_api_credentials() -> None:
@@ -54,27 +91,27 @@ def _patch_api_credentials() -> None:
     model = os.environ.get("CLAUDE_MODEL", "")
 
     if not api_key:
+        print("[patches] WARNING: AZURE_FOUNDRY_API_KEY not set — skipping credential patch")
         return
 
     os.environ["ANTHROPIC_API_KEY"] = api_key
-    logger.info("Set ANTHROPIC_API_KEY from AZURE_FOUNDRY_API_KEY")
+    print(f"[patches] Set ANTHROPIC_API_KEY from AZURE_FOUNDRY_API_KEY (len={len(api_key)})")
 
     if base_url:
         clean_url = base_url.rstrip("/")
         os.environ["ANTHROPIC_BASE_URL"] = clean_url
-        logger.info("Set ANTHROPIC_BASE_URL from AZURE_FOUNDRY_ENDPOINT")
+        print(f"[patches] Set ANTHROPIC_BASE_URL = {clean_url}")
 
     if model:
-        # ClaudeAgentSettings loads model from CLAUDE_AGENT_MODEL env var
         os.environ["CLAUDE_AGENT_MODEL"] = model
-        logger.info("Set CLAUDE_AGENT_MODEL=%s from CLAUDE_MODEL", model)
+        print(f"[patches] Set CLAUDE_AGENT_MODEL = {model}")
 
     # Claude Code CLI requires Foundry-specific env vars for Azure auth
     os.environ["CLAUDE_CODE_USE_FOUNDRY"] = "true"
     os.environ["ANTHROPIC_FOUNDRY_API_KEY"] = api_key
     if base_url:
         os.environ["ANTHROPIC_FOUNDRY_BASE_URL"] = base_url.rstrip("/")
-    logger.info("Set CLAUDE_CODE_USE_FOUNDRY=true + Foundry credentials")
+    print("[patches] Set CLAUDE_CODE_USE_FOUNDRY=true + Foundry credentials")
 
 
 def _patch_windows_cmd() -> None:
@@ -114,8 +151,6 @@ def _patch_windows_cmd() -> None:
         return cmd
 
     SubprocessCLITransport._build_command = _patched_build_command  # type: ignore[assignment]
-    logger.info(
-        "Applied Windows CLI patch: %s %s (bypassing .CMD wrapper)",
-        node_exe_str,
-        cli_js_str,
+    print(
+        f"[patches] Applied Windows CLI patch: {node_exe_str} {cli_js_str} (bypassing .CMD wrapper)"
     )

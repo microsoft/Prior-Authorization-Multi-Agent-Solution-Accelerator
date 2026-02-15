@@ -435,7 +435,7 @@ prior-auth-maf/
 │       ├── main.py                       # FastAPI app, CORS, router mounts (review + decision)
 │       ├── config.py                     # Settings (API keys, MCP endpoints)
 │       ├── patches/
-│       │   └── __init__.py               # Windows Claude SDK patches (CMD bypass, API creds, model mapping)
+│       │   └── __init__.py               # Windows Claude SDK patches (CMD bypass, API creds, model mapping, event loop)
 │       ├── agents/
 │       │   ├── __init__.py               # Exports run_multi_agent_review + store functions
 │       │   ├── _parse.py                 # Shared JSON response parser
@@ -910,17 +910,30 @@ not be available on Azure Foundry endpoints.
 **Fix:** Maps `CLAUDE_MODEL` from `.env` to `CLAUDE_AGENT_MODEL` so the
 SDK uses the correct model (e.g., `claude-opus-4-5`).
 
+**Patch 4 — Windows asyncio event loop (ProactorEventLoop):**
+
+On Windows, `asyncio.create_subprocess_exec()` only works with
+`ProactorEventLoop`. When uvicorn runs with `--reload`, the worker process
+may use `SelectorEventLoop` which raises `NotImplementedError` when the
+SDK tries to spawn the Claude Code CLI as a subprocess.
+
+**Fix:** Sets `asyncio.WindowsProactorEventLoopPolicy()` before the event
+loop is created, ensuring subprocess support is available.
+
 **When these patches activate:**
 
-| Patch | Activates when |
-|-------|---------------|
-| CMD bypass | `os.name == "nt"` and `shutil.which("claude")` returns a `.CMD` file |
-| API credentials + Foundry auth | `AZURE_FOUNDRY_API_KEY` is set in the environment |
-| Model mapping | `CLAUDE_MODEL` is set in the environment |
+| Patch | Activates when | In Linux/Docker? |
+|-------|---------------|-----------------|
+| CMD bypass | `os.name == "nt"` and `shutil.which("claude")` returns a `.CMD` file | No |
+| API credentials + Foundry auth | `AZURE_FOUNDRY_API_KEY` is set in the environment | No (no editor session) |
+| Model mapping | `CLAUDE_MODEL` is set in the environment | Yes (harmless) |
+| ProactorEventLoop | `os.name == "nt"` and current policy is not already Proactor | No |
 
 On Linux/macOS or in Docker containers (where the CLI is bundled in the
-`claude-agent-sdk` wheel as a native binary), none of these patches
-activate.
+`claude-agent-sdk` wheel as a native binary), only the model mapping
+patch activates — the other three are Windows-specific and skip
+automatically. **You will not encounter these issues when deploying to
+Azure in a container.**
 
 ### MCP header injection
 
@@ -1409,9 +1422,14 @@ Foundry-specific env vars (`CLAUDE_CODE_USE_FOUNDRY=true`,
 authentication. Setting only `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL`
 is not sufficient.
 
-**Fix:** The `app/patches/__init__.py` module patches both issues
-automatically. Make sure you are running the **latest code** — restart
-the uvicorn server after pulling updates:
+**Cause 3 — Wrong asyncio event loop:** On Windows, uvicorn with
+`--reload` may use `SelectorEventLoop` which does not support
+`asyncio.create_subprocess_exec()`. The SDK raises `NotImplementedError`
+when trying to spawn the Claude Code CLI subprocess.
+
+**Fix:** The `app/patches/__init__.py` module patches all three issues
+automatically (Patches 1, 2, and 4). Make sure you are running the
+**latest code** — restart the uvicorn server after pulling updates:
 
 ```bash
 cd backend
@@ -1420,9 +1438,16 @@ uvicorn app.main:app --reload
 
 Verify the patches are applied by checking the server log for:
 ```
-INFO:app.patches:Applied Windows CLI patch: ...node.EXE ...cli.js (bypassing .CMD wrapper)
-INFO:app.patches:Set CLAUDE_CODE_USE_FOUNDRY=true + Foundry credentials
+[patches] Applying SDK patches...
+[patches] Set WindowsProactorEventLoopPolicy (subprocess support)
+[patches] Set ANTHROPIC_API_KEY from AZURE_FOUNDRY_API_KEY (len=84)
+[patches] Set CLAUDE_CODE_USE_FOUNDRY=true + Foundry credentials
+[patches] Applied Windows CLI patch: ...node.EXE ...cli.js (bypassing .CMD wrapper)
+[patches] All patches applied.
 ```
+
+> **Note:** These issues are Windows-only. Container deployments on
+> Linux (Azure Container Apps, Docker) are not affected.
 
 ### Agents return empty responses (cost $0)
 
@@ -1438,8 +1463,8 @@ credentials with the real ones and sets Foundry-specific auth env vars.
 Check for these log lines:
 
 ```
-INFO:app.patches:Set ANTHROPIC_API_KEY from AZURE_FOUNDRY_API_KEY
-INFO:app.patches:Set CLAUDE_CODE_USE_FOUNDRY=true + Foundry credentials
+[patches] Set ANTHROPIC_API_KEY from AZURE_FOUNDRY_API_KEY (len=84)
+[patches] Set CLAUDE_CODE_USE_FOUNDRY=true + Foundry credentials
 ```
 
 ### "Failed to proxy" / ECONNREFUSED / "Review failed"

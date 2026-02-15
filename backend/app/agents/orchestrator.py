@@ -672,6 +672,12 @@ async def _safe_run(agent_name: str, fn, *args) -> dict:
     try:
         return await fn(*args)
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"\n{'='*60}")
+        print(f"[ERROR] {agent_name} failed:")
+        print(tb)
+        print(f"{'='*60}\n")
         logger.error("%s failed: %s", agent_name, e)
         return {"error": str(e), "tool_results": []}
 
