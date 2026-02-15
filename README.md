@@ -442,7 +442,7 @@ prior-auth-maf/
 │
 ├── frontend/
 │   ├── package.json                      # Next.js 16 + shadcn/ui + Tailwind CSS
-│   ├── next.config.ts                    # Static export (output: 'export') + dev API rewrites
+│   ├── next.config.ts                    # Static export (output: 'export')
 │   ├── tsconfig.json                     # TypeScript config (path alias @/*)
 │   ├── components.json                   # shadcn/ui configuration
 │   ├── .env.example                      # Environment variable template
@@ -545,13 +545,19 @@ cd backend
 uvicorn app.main:app --reload
 ```
 
-**Frontend** (runs on port 3000, proxies API calls to backend via Next.js rewrites):
+**Frontend** (runs on port 3000, calls backend directly via CORS):
 ```bash
 cd frontend
+cp .env.example .env.local   # sets NEXT_PUBLIC_API_BASE=http://localhost:8000/api
 npm run dev
 ```
 
 Open `http://localhost:3000` in your browser.
+
+> **Note:** The frontend calls the backend directly (not through a Next.js
+> rewrite proxy) because multi-agent reviews take 3-5 minutes — longer than
+> the dev server proxy's default timeout. CORS on the backend is configured
+> to allow `http://localhost:3000`.
 
 ---
 
@@ -1365,33 +1371,32 @@ credentials with the real ones. Check for this log line:
 INFO:app.patches:Set ANTHROPIC_API_KEY from AZURE_FOUNDRY_API_KEY
 ```
 
-### "Failed to proxy" / ECONNREFUSED on port 8000
+### "Failed to proxy" / ECONNREFUSED / "Review failed"
 
-The frontend shows a proxy error when submitting a review.
+The frontend shows an error when submitting a review.
 
-**Cause:** The backend server is not running, or is running on a different
-port.
+**Cause:** The backend server is not running, or the frontend is not
+configured to reach it. The frontend calls the backend directly (not
+through a Next.js proxy) because multi-agent reviews take 3-5 minutes.
 
-**Fix:** Start the backend server:
+**Fix:**
 
-```bash
-cd backend
-uvicorn app.main:app --reload
-```
+1. Ensure the backend is running:
+   ```bash
+   cd backend
+   uvicorn app.main:app --reload
+   ```
 
-If port 8000 is occupied, start on another port and update the frontend:
+2. Ensure `frontend/.env.local` has the correct backend URL:
+   ```
+   NEXT_PUBLIC_API_BASE=http://localhost:8000/api
+   ```
 
-```bash
-# Backend on port 8001
-uvicorn app.main:app --reload --port 8001
-
-# Create frontend/.env.local
-echo "API_PROXY_TARGET=http://localhost:8001" > frontend/.env.local
-
-# Restart the frontend dev server
-cd frontend
-npm run dev
-```
+3. Restart the frontend dev server after changing `.env.local`:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
 
 ### Port stuck after killing server (Windows)
 
