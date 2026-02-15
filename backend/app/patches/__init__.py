@@ -18,6 +18,10 @@ for the parent process. The SDK subprocess inherits these but cannot use
 them. This patch overrides them with the real Azure Foundry credentials
 from the `.env` file (`AZURE_FOUNDRY_API_KEY` / `AZURE_FOUNDRY_ENDPOINT`).
 
+The Claude Code CLI also requires Foundry-specific env vars for Azure
+authentication: `CLAUDE_CODE_USE_FOUNDRY=true`,
+`ANTHROPIC_FOUNDRY_API_KEY`, and `ANTHROPIC_FOUNDRY_BASE_URL`.
+
 Both patches are safe to apply on all platforms — they only activate when
 the relevant conditions are detected.
 """
@@ -56,14 +60,21 @@ def _patch_api_credentials() -> None:
     logger.info("Set ANTHROPIC_API_KEY from AZURE_FOUNDRY_API_KEY")
 
     if base_url:
-        # Strip trailing slash for consistency
-        os.environ["ANTHROPIC_BASE_URL"] = base_url.rstrip("/")
+        clean_url = base_url.rstrip("/")
+        os.environ["ANTHROPIC_BASE_URL"] = clean_url
         logger.info("Set ANTHROPIC_BASE_URL from AZURE_FOUNDRY_ENDPOINT")
 
     if model:
         # ClaudeAgentSettings loads model from CLAUDE_AGENT_MODEL env var
         os.environ["CLAUDE_AGENT_MODEL"] = model
         logger.info("Set CLAUDE_AGENT_MODEL=%s from CLAUDE_MODEL", model)
+
+    # Claude Code CLI requires Foundry-specific env vars for Azure auth
+    os.environ["CLAUDE_CODE_USE_FOUNDRY"] = "true"
+    os.environ["ANTHROPIC_FOUNDRY_API_KEY"] = api_key
+    if base_url:
+        os.environ["ANTHROPIC_FOUNDRY_BASE_URL"] = base_url.rstrip("/")
+    logger.info("Set CLAUDE_CODE_USE_FOUNDRY=true + Foundry credentials")
 
 
 def _patch_windows_cmd() -> None:
