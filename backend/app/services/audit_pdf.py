@@ -327,6 +327,50 @@ def generate_audit_justification_pdf(
             indicators = extraction["severity_indicators"][:5]
             _bullet(pdf, f"Severity Indicators: {'; '.join(indicators)}")
         _kv(pdf, "Extraction Confidence", f"{extraction.get('extraction_confidence', 0)}%")
+
+    # Literature support (PubMed)
+    lit = clinical_result.get("literature_support", [])
+    if lit and isinstance(lit, list):
+        pdf.ln(3)
+        _check_page_space(pdf, 20)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.cell(0, 6, "Literature Support (PubMed):")
+        pdf.ln(5)
+        for ref in lit[:5]:
+            if isinstance(ref, dict):
+                title = _safe_str(ref.get("title", "Untitled"))
+                pmid = ref.get("pmid", "")
+                relevance = _safe_str(ref.get("relevance", ""))
+                pmid_label = f" (PMID: {pmid})" if pmid else ""
+                _bullet(pdf, f"{title}{pmid_label}")
+                if relevance:
+                    pdf.set_x(15)
+                    pdf.set_font("Helvetica", "I", 8)
+                    pdf.multi_cell(0, 4, _safe_str(f"Relevance: {relevance}"))
+                    pdf.set_font("Helvetica", "", 9)
+
+    # Clinical trials (ClinicalTrials.gov)
+    trials = clinical_result.get("clinical_trials", [])
+    if trials and isinstance(trials, list):
+        pdf.ln(3)
+        _check_page_space(pdf, 20)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.cell(0, 6, "Relevant Clinical Trials:")
+        pdf.ln(5)
+        for trial in trials[:5]:
+            if isinstance(trial, dict):
+                nct_id = trial.get("nct_id", "")
+                title = _safe_str(trial.get("title", "Untitled"))
+                status = trial.get("status", "")
+                relevance = _safe_str(trial.get("relevance", ""))
+                status_label = f" [{status}]" if status else ""
+                _bullet(pdf, f"{nct_id}: {title}{status_label}")
+                if relevance:
+                    pdf.set_x(15)
+                    pdf.set_font("Helvetica", "I", 8)
+                    pdf.multi_cell(0, 4, _safe_str(f"Relevance: {relevance}"))
+                    pdf.set_font("Helvetica", "", 9)
+
     pdf.ln(3)
 
     # =================================================================

@@ -40,6 +40,8 @@ def generate_approval_letter(
     procedure_codes: list[str],
     diagnosis_codes: list[str],
     summary: str,
+    insurance_id: str = "",
+    policy_references: list[str] | None = None,
 ) -> dict:
     """Generate an APPROVAL notification letter.
 
@@ -48,6 +50,12 @@ def generate_approval_letter(
     """
     today = date.today()
     expiration = today + timedelta(days=90)
+
+    insurance_line = f"\n  Insurance ID: {insurance_id}" if insurance_id else ""
+    policy_section = ""
+    if policy_references:
+        refs = "\n".join(f"  - {ref}" for ref in policy_references)
+        policy_section = f"\n\nCOVERAGE POLICY REFERENCE:\n{refs}"
 
     body = f"""{_DISCLAIMER_HEADER}
 
@@ -65,7 +73,7 @@ services has been APPROVED.
 
 PATIENT INFORMATION:
   Name: {patient_name}
-  Date of Birth: {patient_dob}
+  Date of Birth: {patient_dob}{insurance_line}
 
 APPROVED SERVICES:
   Procedure Code(s): {', '.join(procedure_codes)}
@@ -73,7 +81,7 @@ APPROVED SERVICES:
 
 AUTHORIZATION PERIOD:
   Effective Date:  {today.isoformat()}
-  Expiration Date: {expiration.isoformat()}
+  Expiration Date: {expiration.isoformat()}{policy_section}
 
 CLINICAL SUMMARY:
 {summary}
@@ -115,6 +123,8 @@ def generate_pend_letter(
     missing_documentation: list[str],
     documentation_gaps: list[dict],
     summary: str,
+    insurance_id: str = "",
+    policy_references: list[str] | None = None,
 ) -> dict:
     """Generate a PEND (request for additional information) notification letter.
 
@@ -139,6 +149,12 @@ def generate_pend_letter(
 
     missing_section = "\n".join(missing_items) if missing_items else "  - Additional clinical documentation"
 
+    insurance_line = f"\n  Insurance ID: {insurance_id}" if insurance_id else ""
+    policy_section = ""
+    if policy_references:
+        refs = "\n".join(f"  - {ref}" for ref in policy_references)
+        policy_section = f"\n\nCOVERAGE POLICY REFERENCE:\n{refs}"
+
     appeal_rights = (
         f"If you disagree with this request for additional information, "
         f"you may submit a written appeal within 30 days of this notice. "
@@ -162,11 +178,11 @@ pending receipt of additional documentation.
 
 PATIENT INFORMATION:
   Name: {patient_name}
-  Date of Birth: {patient_dob}
+  Date of Birth: {patient_dob}{insurance_line}
 
 REQUESTED SERVICES:
   Procedure Code(s): {', '.join(procedure_codes)}
-  Diagnosis Code(s): {', '.join(diagnosis_codes)}
+  Diagnosis Code(s): {', '.join(diagnosis_codes)}{policy_section}
 
 CLINICAL SUMMARY:
 {summary}
@@ -292,6 +308,9 @@ def generate_letter_pdf(letter_dict: dict) -> str:
     _section_heading(pdf, "PATIENT INFORMATION")
     _kv(pdf, "Name", patient_name)
     _kv(pdf, "Date of Birth", letter_dict.get("patient_dob", ""))
+    insurance_id = letter_dict.get("insurance_id", "")
+    if insurance_id:
+        _kv(pdf, "Insurance ID", insurance_id)
     pdf.ln(4)
 
     _section_heading(pdf, "PROVIDER INFORMATION")
@@ -309,6 +328,16 @@ def generate_letter_pdf(letter_dict: dict) -> str:
             _kv(pdf, "Procedure Code(s)", ", ".join(procedure_codes))
         if diagnosis_codes:
             _kv(pdf, "Diagnosis Code(s)", ", ".join(diagnosis_codes))
+        pdf.ln(4)
+
+    # --- Policy reference ---
+    policy_refs = letter_dict.get("policy_references", [])
+    if policy_refs:
+        _section_heading(pdf, "COVERAGE POLICY REFERENCE")
+        pdf.set_font("Helvetica", "", 9)
+        for ref in policy_refs:
+            pdf.cell(6, 5, "\u2022")
+            pdf.multi_cell(0, 5, ref)
         pdf.ln(4)
 
     # --- Authorization period (approval only) ---

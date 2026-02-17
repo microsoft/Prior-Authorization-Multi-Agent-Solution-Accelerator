@@ -83,6 +83,8 @@ async def submit_decision(request: DecisionRequest):
         "procedure_codes": request_data.get("procedure_codes", []),
         "diagnosis_codes": request_data.get("diagnosis_codes", []),
         "summary": review_response.get("summary", ""),
+        "insurance_id": request_data.get("insurance_id", ""),
+        "policy_references": review_response.get("policy_references", []),
     }
 
     # Generate notification letter
@@ -104,6 +106,8 @@ async def submit_decision(request: DecisionRequest):
     letter_dict["procedure_codes"] = request_data.get("procedure_codes", [])
     letter_dict["diagnosis_codes"] = request_data.get("diagnosis_codes", [])
     letter_dict["summary"] = review_response.get("summary", "")
+    letter_dict["insurance_id"] = request_data.get("insurance_id", "")
+    letter_dict["policy_references"] = review_response.get("policy_references", [])
     if final_recommendation != "approve":
         letter_dict["missing_documentation"] = review_response.get("missing_documentation", [])
         letter_dict["documentation_gaps"] = [
