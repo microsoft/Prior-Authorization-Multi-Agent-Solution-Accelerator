@@ -7,14 +7,22 @@ Receives clinical findings from the Clinical Reviewer Agent as input.
 Enhanced with per-criterion MET/NOT_MET/INSUFFICIENT evaluation,
 confidence scoring, and documentation gap analysis per the Anthropic
 prior-auth-review-skill. Full tool inventory from live MCP servers.
+
+Supports two modes (controlled by USE_SKILLS env var):
+  - Skills mode (default): Uses SKILL.md via MAF native skill discovery
+  - Prompt mode: Uses inline system prompt instructions
 """
 
 import json
+from pathlib import Path
 
 from agent_framework_claude import ClaudeAgent
 
 from app.agents._parse import parse_json_response
+from app.config import settings
 from app.tools.mcp_config import COVERAGE_MCP_SERVERS
+
+_BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
 
 COVERAGE_INSTRUCTIONS = """\
 You are a Coverage Assessment Agent for prior authorization requests.
@@ -169,7 +177,37 @@ Return JSON with this exact structure:
 
 
 async def create_coverage_agent() -> ClaudeAgent:
-    """Create the Coverage Assessment Agent with NPI and CMS MCP servers."""
+    """Create the Coverage Assessment Agent with NPI and CMS MCP servers.
+
+    In skills mode, uses SKILL.md discovery from .claude/skills/coverage-assessment/.
+    In prompt mode, uses inline COVERAGE_INSTRUCTIONS.
+    """
+    if settings.USE_SKILLS:
+        return ClaudeAgent(
+            instructions=(
+                "You are a Coverage Assessment Agent. "
+                "Use your coverage-assessment Skill to verify provider credentials, "
+                "search coverage policies, and assess criteria."
+            ),
+            default_options={
+                "cwd": _BACKEND_DIR,
+                "setting_sources": ["user", "project"],
+                "allowed_tools": [
+                    "Skill",
+                    "mcp__npi-registry__npi_validate",
+                    "mcp__npi-registry__npi_lookup",
+                    "mcp__npi-registry__npi_search",
+                    "mcp__cms-coverage__search_national_coverage",
+                    "mcp__cms-coverage__search_local_coverage",
+                    "mcp__cms-coverage__get_coverage_document",
+                    "mcp__cms-coverage__get_contractors",
+                    "mcp__cms-coverage__get_whats_new_report",
+                    "mcp__cms-coverage__batch_get_ncds",
+                ],
+                "mcp_servers": COVERAGE_MCP_SERVERS,
+                "permission_mode": "bypassPermissions",
+            },
+        )
     return ClaudeAgent(
         instructions=COVERAGE_INSTRUCTIONS,
         default_options={

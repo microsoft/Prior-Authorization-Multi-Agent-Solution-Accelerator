@@ -544,6 +544,11 @@ Edit `.env` and set your Azure Foundry credentials:
 AZURE_FOUNDRY_API_KEY=your-azure-foundry-api-key
 AZURE_FOUNDRY_ENDPOINT=https://your-endpoint.services.ai.azure.com
 CLAUDE_MODEL=claude-sonnet-4-20250514
+
+# Skills-based approach (default: true)
+# true  = agents use SKILL.md files via MAF native skill discovery
+# false = agents use inline system prompt instructions (prompt-based)
+USE_SKILLS=true
 ```
 
 The MCP server endpoints are pre-configured with defaults from the
@@ -955,15 +960,112 @@ documentation pages. This header is injected via:
 Azure OpenAI's Responses API native MCP support (`type: "mcp"` with `headers`)
 does **not** work because Azure's proxy does not forward the `User-Agent` header.
 
-### Anthropic Agent Skills
+### Anthropic Agent Skills — Comparison
 
 The [Anthropic prior-auth-review-skill](https://github.com/anthropics/healthcare/tree/main/prior-auth-review-skill)
 is a Claude Code Skill (SKILL.md prompt file) that uses progressive disclosure
-to minimize token consumption. While Azure Foundry lists "Agent skills" as a
-supported capability, the Microsoft Agent Framework's Claude SDK does not yet
-expose the required beta headers (`skills-2025-10-02`, `code-execution-2025-08-25`)
-or the `container` parameter. Our implementation embeds the skill's logic as
-system instructions in each agent rather than using the Skills API.
+to minimize token consumption.
+
+This project now supports **two modes**, controlled by the `USE_SKILLS`
+environment variable:
+
+| Mode | `USE_SKILLS` | How agents are configured |
+|------|-------------|--------------------------|
+| **Skills-based** (default) | `true` | Each agent uses a SKILL.md file discovered via MAF native skill discovery (`setting_sources` + `allowed_tools: ["Skill"]`) |
+| **Prompt-based** (fallback) | `false` | Each agent uses inline system prompt instructions (original approach) |
+
+#### Skills-based approach — how it works
+
+The Microsoft Agent Framework (MAF) supports custom skills natively through
+`ClaudeAgent` configuration:
+
+```python
+agent = ClaudeAgent(
+    instructions="You are a Clinical Reviewer. Use your clinical-review Skill.",
+    default_options={
+        "cwd": str(backend_dir),
+        "setting_sources": ["user", "project"],
+        "allowed_tools": ["Skill", "mcp__icd10-codes__validate_code", ...],
+        "mcp_servers": {"icd10-codes": ICD10_SERVER},
+        "permission_mode": "bypassPermissions",
+    },
+)
+```
+
+Skills are defined as `SKILL.md` files in `.claude/skills/<name>/SKILL.md`
+and are automatically discovered by Claude based on their descriptions. Four
+skills are defined:
+
+| Skill | Directory | MCP servers | Purpose |
+|-------|-----------|-------------|---------|
+| Compliance Review | `.claude/skills/compliance-review/` | None | 8-item documentation completeness checklist |
+| Clinical Review | `.claude/skills/clinical-review/` | icd10-codes, pubmed, clinical-trials | Code validation, clinical extraction, literature + trials |
+| Coverage Assessment | `.claude/skills/coverage-assessment/` | npi-registry, cms-coverage | Provider verification, policy search, criteria mapping |
+| Synthesis Decision | `.claude/skills/synthesis-decision/` | None | Gate-based evaluation, weighted confidence, final recommendation |
+
+Shared reference files in `.claude/references/` provide the decision policy
+rubric and JSON output schemas that all skills reference.
+
+#### Architectural difference
+
+The Anthropic skill is a **single-agent, multi-turn** design: one Claude agent
+holds all MCP tools and progresses through the review using progressive
+disclosure (SKILL.md waypoints). This project uses a **multi-agent pipeline**:
+four specialized agents with partitioned tools, coordinated by a Python
+orchestrator. Each agent has its own SKILL.md with focused instructions.
+
+#### Features: our skills-based approach vs Anthropic skill
+
+| # | Feature | Our skills-based approach | Anthropic skill |
+|---|---------|--------------------------|-----------------|
+| 1 | Multi-agent parallelism | Compliance + Clinical concurrent via `asyncio.gather` | Single agent, sequential |
+| 2 | Per-criterion confidence | Numeric 0-100 per criterion | Binary MET/NOT_MET/INSUFFICIENT |
+| 3 | Extraction confidence | 0-100 per clinical extraction field | Not scored |
+| 4 | Explicit confidence formula | Weighted: criteria 40%, extraction 30%, compliance 20%, policy 10% | Subjective assessment |
+| 5 | Real MCP tool names | `mcp__icd10-codes__validate_code` etc. | Generic `icd10_validate` |
+| 6 | PDF audit justification | Color-coded 8-section PDF with tables + confidence bars | Markdown only |
+| 7 | Dedicated compliance agent | 8-item checklist as separate skill + agent | Embedded in single review |
+| 8 | Diagnosis-Policy Alignment | Explicit auditable criterion in every coverage assessment | Not a distinct step |
+| 9 | Code hierarchy exploration | `get_hierarchy` suggests specific billable codes for non-billable categories | Just flags invalid |
+| 10 | SSE streaming | 9 real-time progress events | Batch (runs to completion) |
+| 11 | Clinical trials + PubMed | Active MCP integration in clinical review skill | Referenced but not used in intake subskill |
+| 12 | Frontend UI | Next.js dashboard with tabbed agent details | CLI-only |
+
+#### Features taken from the Anthropic skill
+
+The skills-based approach incorporates elements from the Anthropic skill that
+were not in our original prompt-based implementation:
+
+- **Quality checks** — each SKILL.md ends with a verification checklist
+- **Common mistakes to avoid** — explicit anti-patterns for each agent
+- **Demo mode NPI bypass** — skip NPPES lookup for test NPI + sample member ID
+- **Coverage policy limitation notice** — Medicare LCDs/NCDs disclaimer for non-Medicare plans
+- **Override permissions** — documented escalation/downgrade rules for human reviewers
+- **Recent policy check** — `get_whats_new_report` for recently revised policies
+- **Decision audit trail** — gate-by-gate evaluation with confidence component breakdown
+- **Appeals guidance** — specific documentation requests for PEND decisions
+
+#### Features equivalent to the Anthropic skill
+
+Both implementations share: ICD-10 validation via MCP, NPI provider
+verification via MCP, CMS coverage policy search via MCP, PubMed literature
+search via MCP, clinical trials search via MCP, LENIENT mode (never DENY —
+only APPROVE or PEND), gate-based evaluation (Provider → Codes → Medical
+Necessity), MET/NOT_MET/INSUFFICIENT status per criterion, human-in-the-loop
+decision flow (accept/override), notification letter generation (approval and
+pend types), and structured audit trails.
+
+#### Three-way comparison
+
+| Aspect | Skills-based (default) | Prompt-based (fallback) | Anthropic skill |
+|--------|----------------------|------------------------|-----------------|
+| Agent configuration | SKILL.md files via MAF discovery | Inline system instructions | SKILL.md via Claude Code Skills API |
+| Token efficiency | Progressive disclosure — only loaded when invoked | Full prompt (~800-900 tokens per agent) | Progressive disclosure per subskill |
+| Prompt vetting | Best of both: Anthropic patterns + our enhancements | Written independently | Anthropic's internal clinical review |
+| Parallelism | Multi-agent, concurrent | Multi-agent, concurrent | Single agent, sequential |
+| Platform | Azure Foundry via MAF | Azure Foundry via MAF | Claude Code with Skills API beta headers |
+| Confidence formula | Explicit weighted (4 components) | Per-agent averages | Subjective assessment |
+| Toggle | `USE_SKILLS=true` (default) | `USE_SKILLS=false` | N/A |
 
 ### Prompt caching
 

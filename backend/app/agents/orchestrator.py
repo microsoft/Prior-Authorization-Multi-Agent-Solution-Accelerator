@@ -11,6 +11,10 @@ Enhanced with the Anthropic prior-auth-review-skill decision rubric:
   - Confidence scoring: HIGH/MEDIUM/LOW + 0-100
   - Audit trail with data sources and metrics
   - Audit justification document generation
+
+Supports two modes (controlled by USE_SKILLS env var):
+  - Skills mode (default): Synthesis agent uses SKILL.md via MAF skill discovery
+  - Prompt mode: Synthesis agent uses inline SYNTHESIS_INSTRUCTIONS
 """
 
 import asyncio
@@ -18,6 +22,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
+from pathlib import Path
 
 from agent_framework_claude import ClaudeAgent
 
@@ -25,10 +30,13 @@ from app.agents._parse import parse_json_response
 from app.agents.compliance_agent import run_compliance_review
 from app.agents.clinical_agent import run_clinical_review
 from app.agents.coverage_agent import run_coverage_review
+from app.config import settings
 from app.services.audit_pdf import generate_audit_justification_pdf
 from app.services.cpt_validation import validate_procedure_codes
 
 logger = logging.getLogger(__name__)
+
+_BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
 
 
 # --- In-memory review store (demo persistence) ---
@@ -705,13 +713,31 @@ async def _run_synthesis(
     This is a lightweight reasoning-only agent (no tools) that reads the
     reports from all three specialized agents and applies the decision rubric
     with gate-based evaluation.
+
+    In skills mode, uses SKILL.md discovery from .claude/skills/synthesis-decision/.
+    In prompt mode, uses inline SYNTHESIS_INSTRUCTIONS.
     """
-    agent = ClaudeAgent(
-        instructions=SYNTHESIS_INSTRUCTIONS,
-        default_options={
-            "permission_mode": "bypassPermissions",
-        },
-    )
+    if settings.USE_SKILLS:
+        agent = ClaudeAgent(
+            instructions=(
+                "You are a Synthesis Decision Agent. "
+                "Use your synthesis-decision Skill to evaluate the gate-based "
+                "decision rubric and produce a final recommendation."
+            ),
+            default_options={
+                "cwd": _BACKEND_DIR,
+                "setting_sources": ["user", "project"],
+                "allowed_tools": ["Skill"],
+                "permission_mode": "bypassPermissions",
+            },
+        )
+    else:
+        agent = ClaudeAgent(
+            instructions=SYNTHESIS_INSTRUCTIONS,
+            default_options={
+                "permission_mode": "bypassPermissions",
+            },
+        )
 
     # Build CPT validation section for the prompt
     cpt_section = ""

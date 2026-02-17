@@ -3,11 +3,20 @@
 Validates documentation completeness against required checklists.
 Identifies missing documents and generates specific additional-info requests.
 Uses no tools — pure reasoning over the request data.
+
+Supports two modes (controlled by USE_SKILLS env var):
+  - Skills mode (default): Uses SKILL.md via MAF native skill discovery
+  - Prompt mode: Uses inline system prompt instructions
 """
+
+from pathlib import Path
 
 from agent_framework_claude import ClaudeAgent
 
 from app.agents._parse import parse_json_response
+from app.config import settings
+
+_BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
 
 COMPLIANCE_INSTRUCTIONS = """\
 You are a Compliance Validation Agent for prior authorization requests.
@@ -60,7 +69,24 @@ Return JSON with this exact structure:
 
 
 async def create_compliance_agent() -> ClaudeAgent:
-    """Create the Compliance Validation Agent (no tools)."""
+    """Create the Compliance Validation Agent (no tools).
+
+    In skills mode, uses SKILL.md discovery from .claude/skills/compliance-review/.
+    In prompt mode, uses inline COMPLIANCE_INSTRUCTIONS.
+    """
+    if settings.USE_SKILLS:
+        return ClaudeAgent(
+            instructions=(
+                "You are a Compliance Validation Agent. "
+                "Use your compliance-review Skill to validate documentation completeness."
+            ),
+            default_options={
+                "cwd": _BACKEND_DIR,
+                "setting_sources": ["user", "project"],
+                "allowed_tools": ["Skill"],
+                "permission_mode": "bypassPermissions",
+            },
+        )
     return ClaudeAgent(
         instructions=COMPLIANCE_INSTRUCTIONS,
         default_options={

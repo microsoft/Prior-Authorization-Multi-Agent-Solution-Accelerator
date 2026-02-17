@@ -7,12 +7,21 @@ via Clinical Trials MCP, and structures a clinical narrative.
 
 Enhanced with confidence scoring per the Anthropic prior-auth-review-skill.
 Full tool inventory from live MCP servers.
+
+Supports two modes (controlled by USE_SKILLS env var):
+  - Skills mode (default): Uses SKILL.md via MAF native skill discovery
+  - Prompt mode: Uses inline system prompt instructions
 """
+
+from pathlib import Path
 
 from agent_framework_claude import ClaudeAgent
 
 from app.agents._parse import parse_json_response
+from app.config import settings
 from app.tools.mcp_config import CLINICAL_MCP_SERVERS
+
+_BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
 
 CLINICAL_INSTRUCTIONS = """\
 You are a Clinical Reviewer Agent for prior authorization requests.
@@ -151,7 +160,33 @@ Include the score in the clinical_extraction object.
 
 
 async def create_clinical_agent() -> ClaudeAgent:
-    """Create the Clinical Reviewer Agent with ICD-10, PubMed, and Clinical Trials MCP servers."""
+    """Create the Clinical Reviewer Agent with ICD-10, PubMed, and Clinical Trials MCP servers.
+
+    In skills mode, uses SKILL.md discovery from .claude/skills/clinical-review/.
+    In prompt mode, uses inline CLINICAL_INSTRUCTIONS.
+    """
+    if settings.USE_SKILLS:
+        return ClaudeAgent(
+            instructions=(
+                "You are a Clinical Reviewer Agent. "
+                "Use your clinical-review Skill to validate codes, "
+                "extract clinical data, and search literature."
+            ),
+            default_options={
+                "cwd": _BACKEND_DIR,
+                "setting_sources": ["user", "project"],
+                "allowed_tools": [
+                    "Skill",
+                    "mcp__icd10-codes__validate_code",
+                    "mcp__icd10-codes__lookup_code",
+                    "mcp__icd10-codes__search_codes",
+                    "mcp__icd10-codes__get_hierarchy",
+                    "mcp__icd10-codes__get_by_category",
+                ],
+                "mcp_servers": CLINICAL_MCP_SERVERS,
+                "permission_mode": "bypassPermissions",
+            },
+        )
     return ClaudeAgent(
         instructions=CLINICAL_INSTRUCTIONS,
         default_options={
