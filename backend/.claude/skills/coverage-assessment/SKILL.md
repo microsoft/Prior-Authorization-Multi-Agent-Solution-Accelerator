@@ -46,6 +46,11 @@ You receive:
   have been recently revised.
 - `mcp__cms-coverage__batch_get_ncds(ncd_ids)` — Get multiple NCDs at once.
   More efficient than individual `get_coverage_document` calls.
+- `mcp__cms-coverage__sad_exclusion_list(keyword, hcpcs_code, date_option, limit)` —
+  Search the Self-Administered Drug (SAD) Exclusion List. Identifies drugs
+  that CANNOT be billed under Medicare Part B because they are
+  self-administered. Use when the requested service involves a drug/medication
+  to check Part B billing eligibility.
 
 ### Execution Steps
 

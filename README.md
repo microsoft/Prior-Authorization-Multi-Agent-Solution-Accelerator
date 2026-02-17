@@ -302,7 +302,7 @@ Insurance Plan Type.
 |----------|-------|
 | **Role** | Clinical data extraction, code validation, confidence scoring, clinical trials search |
 | **MCP Servers** | `icd10-codes`, `pubmed`, `clinical-trials` |
-| **Tools** | `validate_code`, `lookup_code`, `search_codes`, `get_hierarchy`, `get_by_category`, `search` (PubMed), `search_trials`, `get_trial_details`, `search_by_eligibility`, `search_investigators`, `analyze_endpoints`, `search_by_sponsor` |
+| **Tools** | `validate_code`, `lookup_code`, `search_codes`, `get_hierarchy`, `get_by_category`, `get_by_body_system`, `search` (PubMed), `search_trials`, `get_trial_details`, `search_by_eligibility`, `search_investigators`, `analyze_endpoints`, `search_by_sponsor` |
 | **Input** | Raw PA request data |
 | **Output** | Diagnosis validation, clinical extraction (with `extraction_confidence` 0-100), literature support, clinical trials, clinical summary |
 
@@ -316,7 +316,7 @@ is the average. Below 60% triggers a low-confidence warning.
 |----------|-------|
 | **Role** | Provider verification, coverage policy assessment, criteria mapping, diagnosis-policy alignment |
 | **MCP Servers** | `npi-registry`, `cms-coverage` |
-| **Tools** | `npi_validate`, `npi_lookup`, `npi_search`, `search_national_coverage`, `search_local_coverage`, `get_coverage_document`, `get_contractors`, `get_whats_new_report`, `batch_get_ncds` |
+| **Tools** | `npi_validate`, `npi_lookup`, `npi_search`, `search_national_coverage`, `search_local_coverage`, `get_coverage_document`, `get_contractors`, `get_whats_new_report`, `batch_get_ncds`, `sad_exclusion_list` |
 | **Input** | Raw PA request + Clinical Reviewer findings |
 | **Output** | Provider verification, coverage policies, criteria assessment (MET/NOT_MET/INSUFFICIENT + confidence), documentation gaps (critical/non-critical), coverage limitations |
 
@@ -409,7 +409,7 @@ These are hosted HTTP endpoints — no local MCP server setup is needed.
 |---|---|---|---|
 | **NPI Registry** | `mcp.deepsense.ai/npi_registry/mcp` | Coverage Agent | `npi_validate`, `npi_lookup`, `npi_search` |
 | **ICD-10 Codes** | `mcp.deepsense.ai/icd10_codes/mcp` | Clinical Agent | `validate_code`, `lookup_code`, `search_codes`, `get_hierarchy`, `get_by_category`, `get_by_body_system` |
-| **CMS Coverage** | `mcp.deepsense.ai/cms_coverage/mcp` | Coverage Agent | `search_national_coverage`, `search_local_coverage`, `get_coverage_document`, `get_contractors`, `get_whats_new_report`, `batch_get_ncds` |
+| **CMS Coverage** | `mcp.deepsense.ai/cms_coverage/mcp` | Coverage Agent | `search_national_coverage`, `search_local_coverage`, `get_coverage_document`, `get_contractors`, `get_whats_new_report`, `batch_get_ncds`, `sad_exclusion_list` |
 | **Clinical Trials** | `mcp.deepsense.ai/clinical_trials/mcp` | Clinical Agent | `search_trials`, `get_trial_details`, `search_by_eligibility`, `search_investigators`, `analyze_endpoints`, `search_by_sponsor` |
 | **PubMed** | `pubmed.mcp.claude.com/mcp` | Clinical Agent | `search` |
 

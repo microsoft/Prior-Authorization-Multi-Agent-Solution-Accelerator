@@ -182,6 +182,7 @@ async def create_clinical_agent() -> ClaudeAgent:
                     "mcp__icd10-codes__search_codes",
                     "mcp__icd10-codes__get_hierarchy",
                     "mcp__icd10-codes__get_by_category",
+                    "mcp__icd10-codes__get_by_body_system",
                     "mcp__pubmed__search",
                     "mcp__clinical-trials__search_trials",
                     "mcp__clinical-trials__get_trial_details",

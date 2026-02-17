@@ -203,6 +203,7 @@ async def create_coverage_agent() -> ClaudeAgent:
                     "mcp__cms-coverage__get_contractors",
                     "mcp__cms-coverage__get_whats_new_report",
                     "mcp__cms-coverage__batch_get_ncds",
+                    "mcp__cms-coverage__sad_exclusion_list",
                 ],
                 "mcp_servers": COVERAGE_MCP_SERVERS,
                 "permission_mode": "bypassPermissions",
