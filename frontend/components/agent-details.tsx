@@ -2,6 +2,7 @@
 
 import type {
   AgentResults,
+  AgentCheck,
   ComplianceResult,
   ClinicalResult,
   CoverageResult,
@@ -37,7 +38,14 @@ import {
   FileCheck,
   ListChecks,
   ScrollText,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  HelpCircle,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
+import { useState } from "react";
 
 function statusBadge(status: string) {
   const map: Record<string, "success" | "warning" | "destructive" | "secondary"> = {
@@ -57,37 +65,180 @@ function statusBadge(status: string) {
   return <Badge variant={map[status] ?? "secondary"}>{status}</Badge>;
 }
 
+function checkIcon(result: string) {
+  switch (result) {
+    case "pass":
+      return <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />;
+    case "fail":
+      return <XCircle className="h-4 w-4 text-red-500 shrink-0" />;
+    case "warning":
+      return <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />;
+    default:
+      return <HelpCircle className="h-4 w-4 text-muted-foreground shrink-0" />;
+  }
+}
+
+function ChecksSummary({ checks, title }: { checks: AgentCheck[]; title: string }) {
+  if (!checks || checks.length === 0) return null;
+
+  const passCount = checks.filter((c) => c.result === "pass").length;
+  const failCount = checks.filter((c) => c.result === "fail").length;
+  const warnCount = checks.filter((c) => c.result === "warning").length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-semibold flex items-center gap-1.5">
+          <ListChecks className="h-4 w-4 text-primary" />
+          {title}
+        </h4>
+        <div className="flex items-center gap-3 text-xs">
+          {passCount > 0 && (
+            <span className="flex items-center gap-1 text-green-600">
+              <CheckCircle2 className="h-3 w-3" /> {passCount} passed
+            </span>
+          )}
+          {warnCount > 0 && (
+            <span className="flex items-center gap-1 text-amber-500">
+              <AlertCircle className="h-3 w-3" /> {warnCount} warnings
+            </span>
+          )}
+          {failCount > 0 && (
+            <span className="flex items-center gap-1 text-red-500">
+              <XCircle className="h-3 w-3" /> {failCount} failed
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/40">
+              <TableHead className="w-8"></TableHead>
+              <TableHead>Rule / Check</TableHead>
+              <TableHead className="w-20">Result</TableHead>
+              <TableHead>Detail</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {checks.map((check, i) => {
+              const isSubItem = check.rule.startsWith("  ");
+              return (
+                <TableRow
+                  key={i}
+                  className={isSubItem ? "bg-muted/20" : undefined}
+                >
+                  <TableCell className="py-2">{checkIcon(check.result)}</TableCell>
+                  <TableCell
+                    className={`py-2 ${
+                      isSubItem
+                        ? "pl-6 text-sm text-muted-foreground"
+                        : "font-medium"
+                    }`}
+                  >
+                    {isSubItem ? check.rule.trim() : check.rule}
+                  </TableCell>
+                  <TableCell className="py-2">{statusBadge(check.result)}</TableCell>
+                  <TableCell className="py-2 text-sm text-muted-foreground">
+                    {check.detail}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  icon: Icon,
+  children,
+  defaultOpen = false,
+  hasData = true,
+}: {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  hasData?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border rounded-lg">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-2 p-3 hover:bg-muted/40 transition-colors text-left"
+      >
+        {isOpen ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+        )}
+        <Icon className="h-4 w-4 text-primary shrink-0" />
+        <span className="text-sm font-medium flex-1">{title}</span>
+        {!hasData && (
+          <Badge variant="secondary" className="text-xs">
+            No data
+          </Badge>
+        )}
+      </button>
+      {isOpen && (
+        <div className="px-3 pb-3 border-t">
+          <div className="pt-3">{children}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ComplianceTab({ data }: { data: ComplianceResult }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">Overall:</span>
-        {statusBadge(data.overall_status)}
-      </div>
+      {/* Checks summary — always visible */}
+      <ChecksSummary
+        checks={data.checks_performed}
+        title="Compliance Checks Performed"
+      />
 
+      {/* Detailed sections */}
       {data.checklist.length > 0 && (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className="w-28">Status</TableHead>
-                <TableHead>Detail</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.checklist.map((item, i) => (
-                <TableRow key={i}>
-                  <TableCell className="font-medium">{item.item}</TableCell>
-                  <TableCell>{statusBadge(item.status)}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {item.detail}
-                  </TableCell>
+        <CollapsibleSection
+          title={`Documentation Checklist (${data.checklist.length} items)`}
+          icon={ClipboardCheck}
+          hasData={data.checklist.length > 0}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-medium">Overall:</span>
+            {statusBadge(data.overall_status)}
+          </div>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="w-28">Status</TableHead>
+                  <TableHead>Detail</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {data.checklist.map((item, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{item.item}</TableCell>
+                    <TableCell>{statusBadge(item.status)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {item.detail}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CollapsibleSection>
       )}
 
       {data.missing_items.length > 0 && (
@@ -128,13 +279,20 @@ function ComplianceTab({ data }: { data: ComplianceResult }) {
 function ClinicalTab({ data }: { data: ClinicalResult }) {
   return (
     <div className="space-y-4">
-      {/* Diagnosis validation */}
-      {data.diagnosis_validation.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <FileCheck className="h-3.5 w-3.5 text-primary" />
-            Diagnosis Validation
-          </h4>
+      {/* Checks summary — always visible */}
+      <ChecksSummary
+        checks={data.checks_performed}
+        title="Clinical Review Checks Performed"
+      />
+
+      {/* Detailed sections — collapsible */}
+      <CollapsibleSection
+        title={`Diagnosis Validation (${data.diagnosis_validation.length} codes)`}
+        icon={FileCheck}
+        hasData={data.diagnosis_validation.length > 0}
+        defaultOpen={data.diagnosis_validation.length > 0}
+      >
+        {data.diagnosis_validation.length > 0 ? (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -163,16 +321,20 @@ function ClinicalTab({ data }: { data: ClinicalResult }) {
               </TableBody>
             </Table>
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No diagnosis validation data available.
+          </p>
+        )}
+      </CollapsibleSection>
 
-      {/* Clinical extraction */}
-      {data.clinical_extraction && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <FileSearch className="h-3.5 w-3.5 text-primary" />
-            Clinical Extraction
-          </h4>
+      <CollapsibleSection
+        title="Clinical Extraction"
+        icon={FileSearch}
+        hasData={!!data.clinical_extraction}
+        defaultOpen={!!data.clinical_extraction}
+      >
+        {data.clinical_extraction ? (
           <Card className="bg-muted/40">
             <CardContent className="pt-4 space-y-2 text-sm">
               <div>
@@ -226,16 +388,19 @@ function ClinicalTab({ data }: { data: ClinicalResult }) {
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No clinical extraction data available.
+          </p>
+        )}
+      </CollapsibleSection>
 
-      {/* Literature */}
-      {data.literature_support.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <BookOpen className="h-3.5 w-3.5 text-primary" />
-            Literature Support
-          </h4>
+      <CollapsibleSection
+        title={`Literature Support (${data.literature_support.length} references)`}
+        icon={BookOpen}
+        hasData={data.literature_support.length > 0}
+      >
+        {data.literature_support.length > 0 ? (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -260,16 +425,19 @@ function ClinicalTab({ data }: { data: ClinicalResult }) {
               </TableBody>
             </Table>
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No literature references found.
+          </p>
+        )}
+      </CollapsibleSection>
 
-      {/* Clinical Trials */}
-      {data.clinical_trials.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <FlaskConical className="h-3.5 w-3.5 text-primary" />
-            Clinical Trials
-          </h4>
+      <CollapsibleSection
+        title={`Clinical Trials (${data.clinical_trials.length} trials)`}
+        icon={FlaskConical}
+        hasData={data.clinical_trials.length > 0}
+      >
+        {data.clinical_trials.length > 0 ? (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -298,29 +466,34 @@ function ClinicalTab({ data }: { data: ClinicalResult }) {
               </TableBody>
             </Table>
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No clinical trials found.
+          </p>
+        )}
+      </CollapsibleSection>
 
-      {/* Summary */}
+      {/* Clinical Summary */}
       {data.clinical_summary && (
-        <div>
-          <h4 className="text-sm font-medium mb-1 flex items-center gap-1.5">
-            <ScrollText className="h-3.5 w-3.5 text-primary" />
-            Clinical Summary
-          </h4>
+        <CollapsibleSection
+          title="Clinical Summary"
+          icon={ScrollText}
+          hasData={!!data.clinical_summary}
+          defaultOpen
+        >
           <p className="text-sm text-muted-foreground whitespace-pre-wrap">
             {data.clinical_summary}
           </p>
-        </div>
+        </CollapsibleSection>
       )}
 
       {/* Tool results */}
       {data.tool_results.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <ListChecks className="h-3.5 w-3.5 text-primary" />
-            Tool Results
-          </h4>
+        <CollapsibleSection
+          title={`Tool Results (${data.tool_results.length} tools)`}
+          icon={ListChecks}
+          hasData={data.tool_results.length > 0}
+        >
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -345,7 +518,7 @@ function ClinicalTab({ data }: { data: ClinicalResult }) {
               </TableBody>
             </Table>
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {data.error && (
@@ -358,13 +531,20 @@ function ClinicalTab({ data }: { data: ClinicalResult }) {
 function CoverageTab({ data }: { data: CoverageResult }) {
   return (
     <div className="space-y-4">
-      {/* Provider verification */}
-      {data.provider_verification && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <UserCheck className="h-3.5 w-3.5 text-primary" />
-            Provider Verification
-          </h4>
+      {/* Checks summary — always visible */}
+      <ChecksSummary
+        checks={data.checks_performed}
+        title="Coverage Assessment Checks Performed"
+      />
+
+      {/* Detailed sections — collapsible */}
+      <CollapsibleSection
+        title="Provider Verification"
+        icon={UserCheck}
+        hasData={!!data.provider_verification}
+        defaultOpen={!!data.provider_verification}
+      >
+        {data.provider_verification ? (
           <Card className="bg-muted/40">
             <CardContent className="pt-4 text-sm space-y-1">
               <div>
@@ -390,16 +570,20 @@ function CoverageTab({ data }: { data: CoverageResult }) {
               </p>
             </CardContent>
           </Card>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No provider verification data available.
+          </p>
+        )}
+      </CollapsibleSection>
 
-      {/* Coverage policies */}
-      {data.coverage_policies.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <BookOpen className="h-3.5 w-3.5 text-primary" />
-            Coverage Policies
-          </h4>
+      <CollapsibleSection
+        title={`Coverage Policies (${data.coverage_policies.length} policies)`}
+        icon={BookOpen}
+        hasData={data.coverage_policies.length > 0}
+        defaultOpen={data.coverage_policies.length > 0}
+      >
+        {data.coverage_policies.length > 0 ? (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -428,16 +612,20 @@ function CoverageTab({ data }: { data: CoverageResult }) {
               </TableBody>
             </Table>
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No coverage policies found.
+          </p>
+        )}
+      </CollapsibleSection>
 
-      {/* Criteria assessment */}
-      {data.criteria_assessment.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <ListChecks className="h-3.5 w-3.5 text-primary" />
-            Criteria Assessment
-          </h4>
+      <CollapsibleSection
+        title={`Criteria Assessment (${data.criteria_assessment.length} criteria)`}
+        icon={ListChecks}
+        hasData={data.criteria_assessment.length > 0}
+        defaultOpen={data.criteria_assessment.length > 0}
+      >
+        {data.criteria_assessment.length > 0 ? (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -466,16 +654,21 @@ function CoverageTab({ data }: { data: CoverageResult }) {
               </TableBody>
             </Table>
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No criteria assessment data available.
+          </p>
+        )}
+      </CollapsibleSection>
 
       {/* Documentation gaps */}
       {data.documentation_gaps.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-            Documentation Gaps
-          </h4>
+        <CollapsibleSection
+          title={`Documentation Gaps (${data.documentation_gaps.length} gaps)`}
+          icon={AlertTriangle}
+          hasData={data.documentation_gaps.length > 0}
+          defaultOpen
+        >
           <div className="space-y-2">
             {data.documentation_gaps.map((gap, i) => (
               <Card
@@ -496,7 +689,7 @@ function CoverageTab({ data }: { data: CoverageResult }) {
               </Card>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {/* Coverage limitations */}
@@ -516,11 +709,11 @@ function CoverageTab({ data }: { data: CoverageResult }) {
 
       {/* Tool results */}
       {data.tool_results.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <ListChecks className="h-3.5 w-3.5 text-primary" />
-            Tool Results
-          </h4>
+        <CollapsibleSection
+          title={`Tool Results (${data.tool_results.length} tools)`}
+          icon={ListChecks}
+          hasData={data.tool_results.length > 0}
+        >
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -545,7 +738,7 @@ function CoverageTab({ data }: { data: CoverageResult }) {
               </TableBody>
             </Table>
           </div>
-        </div>
+        </CollapsibleSection>
       )}
 
       {data.error && (

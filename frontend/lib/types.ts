@@ -16,6 +16,12 @@ export interface ToolResult {
 
 // --- Per-agent result types ---
 
+export interface AgentCheck {
+  rule: string;
+  result: "pass" | "fail" | "warning" | "info";
+  detail: string;
+}
+
 export interface ChecklistItem {
   item: string;
   status: "complete" | "incomplete" | "missing";
@@ -24,6 +30,7 @@ export interface ChecklistItem {
 
 export interface ComplianceResult {
   agent_name: string;
+  checks_performed: AgentCheck[];
   checklist: ChecklistItem[];
   overall_status: "complete" | "incomplete";
   missing_items: string[];
@@ -64,6 +71,7 @@ export interface ClinicalTrialReference {
 
 export interface ClinicalResult {
   agent_name: string;
+  checks_performed: AgentCheck[];
   diagnosis_validation: DiagnosisValidation[];
   clinical_extraction?: ClinicalExtraction;
   literature_support: LiteratureReference[];
@@ -106,6 +114,7 @@ export interface DocumentationGap {
 
 export interface CoverageResult {
   agent_name: string;
+  checks_performed: AgentCheck[];
   provider_verification?: ProviderVerification;
   coverage_policies: CoveragePolicy[];
   criteria_assessment: CriterionAssessment[];

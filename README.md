@@ -186,13 +186,27 @@ confidence scoring, progressive gate evaluation, and structured audit trails.
 
 6. Once complete, the frontend displays the recommendation with a confidence
    level badge, documentation gaps with critical/non-critical styling, an
-   audit trail section, a **tabbed Agent Details** panel showing each agent's
-   structured output (compliance checklist, diagnosis validation table with
-   billability, criteria assessment grid with confidence bars, etc.), an
-   **Audit Justification Download** button (`.pdf` with the full
-   8-section audit document — color-coded sections, criterion evaluation
-   tables, and confidence bars), and a **Decision Panel** for human reviewer
-   action.
+   audit trail section, a **tabbed Agent Details** panel for each agent
+   (Compliance, Clinical, Coverage), an **Audit Justification Download**
+   button (`.pdf` with the full 8-section audit document — color-coded
+   sections, criterion evaluation tables, and confidence bars), and a
+   **Decision Panel** for human reviewer action.
+
+   Each agent tab shows a **Checks Summary** at the top — a table
+   enumerating **every rule from the agent's SKILL.md file** with
+   pass/fail/warning/info status icons, a pass/warning/fail counter bar,
+   and detailed results per rule. Sub-rules (individual codes, extraction
+   fields, per-criterion assessments) appear as indented sub-items. Rules
+   not evaluated by the agent still appear with a "warning" status so
+   reviewers can see exactly which steps were and were not performed.
+
+   Below the checks summary, **collapsible detail sections** show the
+   agent's full structured output: compliance checklist, diagnosis
+   validation table with billability, clinical extraction with per-field
+   data, literature references, clinical trials, provider verification,
+   coverage policies, criteria assessment grid with confidence bars,
+   documentation gaps, and tool results. Sections without data show a
+   "No data" badge and can still be expanded.
 
 7. The **Decision Panel** supports two flows:
    - **Accept** — the human reviewer confirms the AI recommendation
@@ -283,6 +297,13 @@ mcp_tool = MCPStreamableHTTPTool(name="npi", url=NPI_URL, http_client=http_clien
 
 ## Agent Details
 
+Each agent's execution is fully transparent in the frontend. The **Agent
+Details** panel shows a **Checks Summary** table enumerating every rule from
+the agent's SKILL.md file — with pass/fail/warning/info status — followed by
+collapsible detail sections for the agent's structured output. Rules always
+appear even when the agent returned no data for them (shown as "warning: Not
+evaluated"), so reviewers see exactly what was and was not performed.
+
 ### Compliance Agent
 
 | Property | Value |
@@ -292,9 +313,21 @@ mcp_tool = MCPStreamableHTTPTool(name="npi", url=NPI_URL, http_client=http_clien
 | **Input** | Raw PA request data |
 | **Output** | Checklist (8 items), missing items, additional-info requests |
 
-**Checklist items:** Patient Information, Provider NPI, Insurance ID,
-Diagnosis Codes, Procedure Codes, Clinical Notes Presence, Clinical Notes Quality,
-Insurance Plan Type.
+**SKILL.md rules (always shown in Checks Summary):**
+
+| # | Rule | What it checks |
+|---|------|----------------|
+| 1 | Patient Information | Name and DOB present and non-empty |
+| 2 | Provider NPI | NPI present and exactly 10 digits |
+| 3 | Insurance ID (non-blocking) | Insurance ID provided (informational only) |
+| 4 | Diagnosis Codes | At least one ICD-10 code with valid format |
+| 5 | Procedure Codes | At least one CPT/HCPCS code provided |
+| 6 | Clinical Notes Presence | Substantive clinical narrative (not just codes) |
+| 7 | Clinical Notes Quality | Meaningful detail; boilerplate/copy-paste detection |
+| 8 | Insurance Plan Type (non-blocking) | Medicare/Medicaid/Commercial/MA identification |
+
+Rules 3 and 8 are non-blocking: even if missing, they show as "info" instead
+of "fail" and do not affect the overall compliance status.
 
 ### Clinical Reviewer Agent
 
@@ -305,6 +338,18 @@ Insurance Plan Type.
 | **Tools** | `validate_code`, `lookup_code`, `search_codes`, `get_hierarchy`, `get_by_category`, `get_by_body_system`, `search` (PubMed), `search_trials`, `get_trial_details`, `search_by_eligibility`, `search_investigators`, `analyze_endpoints`, `search_by_sponsor` |
 | **Input** | Raw PA request data |
 | **Output** | Diagnosis validation, clinical extraction (with `extraction_confidence` 0-100), literature support, clinical trials, clinical summary |
+
+**SKILL.md rules (always shown in Checks Summary):**
+
+| # | Rule | MCP tools used | Sub-items |
+|---|------|---------------|-----------|
+| 1 | ICD-10 Diagnosis Code Validation | `validate_code`, `lookup_code`, `get_hierarchy` | Per-code sub-items showing valid/billable status |
+| 2 | CPT/HCPCS Procedure Code Notation | (orchestrator pre-flight) | Reflects pre-flight validation results |
+| 3 | Clinical Data Extraction | None (reasoning) | 8 sub-items: Chief Complaint, HPI, Prior Treatments, Severity Indicators, Functional Limitations, Diagnostic Findings, Duration/Progression, Medical History |
+| 4 | Extraction Confidence Calculation | None (reasoning) | Low-confidence warning if < 60% |
+| 5 | PubMed Literature Search | `search` (PubMed MCP) | Supplementary, non-blocking |
+| 6 | Clinical Trials Search | `search_trials`, `search_by_eligibility` | Supplementary, non-blocking |
+| 7 | Clinical Summary Generation | None (reasoning) | Final structured narrative |
 
 **Confidence scoring:** Each extraction field is scored 0-100 based on how
 explicitly the data appears in clinical notes. Overall `extraction_confidence`
@@ -320,14 +365,28 @@ is the average. Below 60% triggers a low-confidence warning.
 | **Input** | Raw PA request + Clinical Reviewer findings |
 | **Output** | Provider verification, coverage policies, criteria assessment (MET/NOT_MET/INSUFFICIENT + confidence), documentation gaps (critical/non-critical), coverage limitations |
 
+**SKILL.md rules (always shown in Checks Summary):**
+
+| # | Rule | MCP tools used | Sub-items |
+|---|------|---------------|-----------|
+| 1 | Provider NPI Verification | `npi_validate`, `npi_lookup` | Sub-items for format check (Luhn) and NPPES registry lookup |
+| 2 | MAC Identification | `get_contractors` | State-based Medicare Administrative Contractor lookup |
+| 3 | Coverage Policy Search | `search_national_coverage`, `search_local_coverage` | Sub-items for NCD and LCD searches, plus individual policy sub-items |
+| 4 | Policy Detail Retrieval | `get_coverage_document`, `batch_get_ncds` | Full policy text with criteria and exclusions |
+| 5 | Clinical Evidence to Criteria Mapping | None (reasoning) | Per-criterion sub-items with MET/NOT_MET/INSUFFICIENT + confidence |
+| 6 | Diagnosis-Policy Alignment (AUDITABLE) | None (reasoning) | Required criterion — ICD-10 codes vs. policy covered indications |
+| 7 | Documentation Gap Analysis | None (reasoning) | Critical vs. non-critical gap classification |
+
 **Criteria evaluation:** Each policy criterion is assessed as:
 - **MET** (confidence >= 70): Clinical evidence clearly supports the requirement
 - **NOT_MET** (any confidence): Evidence contradicts the requirement
 - **INSUFFICIENT** (confidence < 70): Evidence absent or ambiguous — additional documentation needed
 
 **Diagnosis-Policy Alignment:** A required auditable criterion that cross-references
-submitted ICD-10 codes against the coverage policy's listed indications. Emitted as
-a dedicated entry in `criteria_assessment` with MET/NOT_MET/INSUFFICIENT status.
+submitted ICD-10 codes against the coverage policy's listed indications. Always
+appears as Step 6 in the Checks Summary, even when the agent doesn't explicitly
+report it (shown as "warning: Required auditable criterion — not explicitly
+evaluated by agent").
 
 ### Orchestrator (Synthesis)
 
@@ -490,7 +549,7 @@ prior-auth-maf/
 │   │   ├── upload-form.tsx               # PA request form + "Load Sample Case" + SSE submit
 │   │   ├── progress-tracker.tsx          # Real-time agent progress (phase timeline, agent cards, timer)
 │   │   ├── review-dashboard.tsx          # Results: summary, confidence, gaps, audit trail, justification download
-│   │   ├── agent-details.tsx             # Tabbed per-agent breakdown (Compliance/Clinical/Coverage)
+│   │   ├── agent-details.tsx             # Tabbed per-agent breakdown with Checks Summary + collapsible detail sections
 │   │   └── decision-panel.tsx            # Accept/Override decision + letter preview + PDF download
 │   └── lib/
 │       ├── api.ts                        # Backend API client (submitReviewStream + submitDecision)

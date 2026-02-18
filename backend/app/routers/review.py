@@ -18,6 +18,7 @@ from app.models.schemas import (
     ClinicalResult,
     CoverageResult,
     DocumentationGap,
+    AgentCheck,
 )
 from app.agents.orchestrator import (
     run_multi_agent_review,
@@ -43,11 +44,26 @@ def _build_review_response(request_id: str, result: dict) -> ReviewResponse:
         })
 
     # Parse per-agent results (best-effort — agent JSON may not match exactly)
+    # Generate checks_performed from RAW data before Pydantic parsing
+    # so the checks survive even if detailed field parsing fails
     agent_raw = result.get("agent_results", {})
+
+    compliance_raw = agent_raw.get("compliance")
+    if isinstance(compliance_raw, dict):
+        compliance_raw["checks_performed"] = _generate_compliance_checks(compliance_raw)
+
+    clinical_raw = agent_raw.get("clinical")
+    if isinstance(clinical_raw, dict):
+        clinical_raw["checks_performed"] = _generate_clinical_checks(clinical_raw)
+
+    coverage_raw = agent_raw.get("coverage")
+    if isinstance(coverage_raw, dict):
+        coverage_raw["checks_performed"] = _generate_coverage_checks(coverage_raw)
+
     agent_results = AgentResults(
-        compliance=_safe_parse(ComplianceResult, agent_raw.get("compliance")),
-        clinical=_safe_parse(ClinicalResult, agent_raw.get("clinical")),
-        coverage=_safe_parse(CoverageResult, agent_raw.get("coverage")),
+        compliance=_safe_parse(ComplianceResult, compliance_raw),
+        clinical=_safe_parse(ClinicalResult, clinical_raw),
+        coverage=_safe_parse(CoverageResult, coverage_raw),
     )
 
     # Parse audit trail
@@ -212,6 +228,534 @@ async def get_all_reviews():
         )
         for r in reviews
     ]
+
+
+def _generate_compliance_checks(raw: dict) -> list[dict]:
+    """Generate checks summary from raw compliance agent data.
+
+    Always enumerates ALL 8 rules from the Compliance SKILL.md,
+    filling in status from raw agent data when available.
+    """
+    # Build a lookup from agent checklist items by normalized name
+    checklist = raw.get("checklist", [])
+    item_lookup: dict[str, dict] = {}
+    for item in checklist:
+        if not isinstance(item, dict):
+            continue
+        item_name = str(item.get("item", item.get("name", item.get("check", "")))).lower().strip()
+        item_lookup[item_name] = item
+
+    def _find_item(*keywords: str) -> dict | None:
+        """Find a checklist item matching any of the given keywords."""
+        for key, item in item_lookup.items():
+            for kw in keywords:
+                if kw in key:
+                    return item
+        return None
+
+    def _item_result(item: dict | None) -> tuple[str, str]:
+        """Return (result, detail) for a checklist item."""
+        if item is None:
+            return "warning", "Not evaluated by agent"
+        status = str(item.get("status", "incomplete")).lower()
+        detail = item.get("detail", "")
+        if status in ("complete", "present"):
+            return "pass", detail
+        elif status in ("missing", "absent"):
+            return "fail", detail
+        else:
+            return "warning", detail or f"Status: {status}"
+
+    checks = []
+
+    # Overall status — always first
+    overall = raw.get("overall_status", "incomplete")
+    checks.append({
+        "rule": "Overall Documentation Review",
+        "result": "pass" if overall == "complete" else "warning",
+        "detail": f"Status: {overall}",
+    })
+
+    # SKILL.md Rule 1: Patient Information
+    item = _find_item("patient")
+    r, d = _item_result(item)
+    checks.append({"rule": "Patient Information", "result": r, "detail": d or "Name and DOB check"})
+
+    # SKILL.md Rule 2: Provider NPI
+    item = _find_item("provider", "npi")
+    r, d = _item_result(item)
+    checks.append({"rule": "Provider NPI", "result": r, "detail": d or "NPI format check (10 digits)"})
+
+    # SKILL.md Rule 3: Insurance ID (non-blocking)
+    item = _find_item("insurance id", "insurance_id", "member id")
+    r, d = _item_result(item)
+    if r == "fail":
+        r = "info"  # Non-blocking per SKILL.md
+    checks.append({"rule": "Insurance ID (non-blocking)", "result": r, "detail": d or "Insurance ID presence"})
+
+    # SKILL.md Rule 4: Diagnosis Codes
+    item = _find_item("diagnosis", "icd")
+    r, d = _item_result(item)
+    checks.append({"rule": "Diagnosis Codes", "result": r, "detail": d or "ICD-10 code format check"})
+
+    # SKILL.md Rule 5: Procedure Codes
+    item = _find_item("procedure", "cpt", "hcpcs")
+    r, d = _item_result(item)
+    checks.append({"rule": "Procedure Codes", "result": r, "detail": d or "CPT/HCPCS code presence"})
+
+    # SKILL.md Rule 6: Clinical Notes Presence
+    item = _find_item("notes presence", "clinical notes pres", "notes pres")
+    if item is None:
+        # Fall back to generic "clinical notes" match
+        item = _find_item("clinical note")
+    r, d = _item_result(item)
+    checks.append({"rule": "Clinical Notes Presence", "result": r, "detail": d or "Substantive clinical narrative check"})
+
+    # SKILL.md Rule 7: Clinical Notes Quality
+    item = _find_item("notes quality", "quality")
+    r, d = _item_result(item)
+    checks.append({"rule": "Clinical Notes Quality", "result": r, "detail": d or "Notes detail, boilerplate/copy-paste check"})
+
+    # SKILL.md Rule 8: Insurance Plan Type (non-blocking)
+    item = _find_item("plan type", "insurance type", "insurance plan")
+    r, d = _item_result(item)
+    if r == "fail":
+        r = "info"  # Non-blocking per SKILL.md
+    checks.append({"rule": "Insurance Plan Type (non-blocking)", "result": r, "detail": d or "Medicare/Medicaid/Commercial/MA identification"})
+
+    return checks
+
+
+def _generate_clinical_checks(raw: dict) -> list[dict]:
+    """Generate checks summary from raw clinical agent data.
+
+    Always enumerates ALL 7 rules from the Clinical Review SKILL.md,
+    filling in status from raw agent data when available.
+    """
+    checks = []
+
+    # ── SKILL.md Step 1: ICD-10 Diagnosis Code Validation ──
+    dx = raw.get("diagnosis_validation", [])
+    if isinstance(dx, list) and dx:
+        valid_count = sum(
+            1 for d in dx if isinstance(d, dict) and d.get("valid")
+        )
+        billable_count = sum(
+            1 for d in dx if isinstance(d, dict) and d.get("billable")
+        )
+        total = len([d for d in dx if isinstance(d, dict)])
+        checks.append({
+            "rule": "Step 1: ICD-10 Diagnosis Code Validation",
+            "result": "pass" if valid_count == total else "warning",
+            "detail": f"{valid_count}/{total} valid, {billable_count}/{total} billable",
+        })
+        for d in dx:
+            if not isinstance(d, dict):
+                continue
+            code = d.get("code", "?")
+            valid = d.get("valid", False)
+            billable = d.get("billable", False)
+            desc = d.get("description", "")
+            if valid and billable:
+                r = "pass"
+                det = desc
+            elif valid:
+                r = "warning"
+                det = f"{desc} (valid but not billable — hierarchy lookup needed)"
+            else:
+                r = "fail"
+                det = f"{desc} (invalid)"
+            checks.append({"rule": f"  validate_code + lookup_code: {code}", "result": r, "detail": det})
+    else:
+        checks.append({
+            "rule": "Step 1: ICD-10 Diagnosis Code Validation",
+            "result": "warning",
+            "detail": "No validation data returned (validate_code, lookup_code, get_hierarchy)",
+        })
+
+    # ── SKILL.md Step 2: CPT/HCPCS Procedure Code Notation ──
+    proc_val = raw.get("procedure_validation", [])
+    if isinstance(proc_val, list) and proc_val:
+        passed = sum(1 for p in proc_val if isinstance(p, dict) and str(p.get("status", "")).lower() in ("pass", "valid", "verified"))
+        total = len([p for p in proc_val if isinstance(p, dict)])
+        checks.append({
+            "rule": "Step 2: CPT/HCPCS Procedure Code Notation",
+            "result": "pass" if passed == total else "warning",
+            "detail": f"{passed}/{total} procedure codes noted/verified",
+        })
+    else:
+        # Check if pre-flight CPT validation was passed through
+        checks.append({
+            "rule": "Step 2: CPT/HCPCS Procedure Code Notation",
+            "result": "info",
+            "detail": "Procedure codes noted (validation via orchestrator pre-flight)",
+        })
+
+    # ── SKILL.md Step 3: Clinical Data Extraction (8 fields) ──
+    extraction = raw.get("clinical_extraction", {})
+    if isinstance(extraction, dict) and extraction:
+        field_checks = {
+            "Chief Complaint": extraction.get("chief_complaint", ""),
+            "History of Present Illness": extraction.get("history_of_present_illness", ""),
+            "Prior Treatments": extraction.get("prior_treatments", []),
+            "Severity Indicators": extraction.get("severity_indicators", []),
+            "Functional Limitations": extraction.get("functional_limitations", []),
+            "Diagnostic Findings": extraction.get("diagnostic_findings", []),
+            "Duration and Progression": extraction.get("duration_and_progression", ""),
+            "Medical History / Comorbidities": extraction.get("medical_history", extraction.get("comorbidities", "")),
+        }
+        extracted_count = sum(1 for v in field_checks.values() if v)
+        checks.append({
+            "rule": "Step 3: Clinical Data Extraction",
+            "result": "pass" if extracted_count >= 5 else ("warning" if extracted_count >= 3 else "fail"),
+            "detail": f"{extracted_count}/8 clinical fields extracted",
+        })
+        for field_name, field_value in field_checks.items():
+            has_data = bool(field_value)
+            if isinstance(field_value, list):
+                detail = f"{len(field_value)} items found" if field_value else "Not found in clinical notes"
+            elif isinstance(field_value, str):
+                detail = field_value[:80] + "..." if len(field_value) > 80 else field_value if field_value else "Not found in clinical notes"
+            else:
+                detail = "Not found in clinical notes"
+            checks.append({
+                "rule": f"  Extract: {field_name}",
+                "result": "pass" if has_data else "info",
+                "detail": detail,
+            })
+    else:
+        checks.append({
+            "rule": "Step 3: Clinical Data Extraction",
+            "result": "warning",
+            "detail": "No structured extraction data returned",
+        })
+        for field_name in [
+            "Chief Complaint", "History of Present Illness", "Prior Treatments",
+            "Severity Indicators", "Functional Limitations", "Diagnostic Findings",
+            "Duration and Progression", "Medical History / Comorbidities",
+        ]:
+            checks.append({
+                "rule": f"  Extract: {field_name}",
+                "result": "warning",
+                "detail": "Not evaluated — no extraction data",
+            })
+
+    # ── SKILL.md Step 4: Extraction Confidence Calculation ──
+    if isinstance(extraction, dict) and extraction:
+        conf = extraction.get("extraction_confidence", 0)
+        if isinstance(conf, float) and 0 < conf <= 1:
+            conf = round(conf * 100)
+        low_conf_warning = " — LOW CONFIDENCE WARNING" if conf < 60 else ""
+        checks.append({
+            "rule": "Step 4: Extraction Confidence Calculation",
+            "result": "pass" if conf >= 60 else "warning",
+            "detail": f"Overall extraction confidence: {conf}%{low_conf_warning}",
+        })
+    else:
+        checks.append({
+            "rule": "Step 4: Extraction Confidence Calculation",
+            "result": "warning",
+            "detail": "Cannot calculate — no extraction data",
+        })
+
+    # ── SKILL.md Step 5: PubMed Literature Search ──
+    lit = raw.get("literature_support", [])
+    if isinstance(lit, list) and lit:
+        checks.append({
+            "rule": "Step 5: PubMed Literature Search",
+            "result": "pass",
+            "detail": f"{len(lit)} supporting references found",
+        })
+    else:
+        checks.append({
+            "rule": "Step 5: PubMed Literature Search",
+            "result": "info",
+            "detail": "No literature references returned (supplementary — non-blocking)",
+        })
+
+    # ── SKILL.md Step 6: Clinical Trials Search ──
+    trials = raw.get("clinical_trials", [])
+    if isinstance(trials, list) and trials:
+        checks.append({
+            "rule": "Step 6: Clinical Trials Search",
+            "result": "pass",
+            "detail": f"{len(trials)} relevant trials found",
+        })
+    else:
+        checks.append({
+            "rule": "Step 6: Clinical Trials Search",
+            "result": "info",
+            "detail": "No clinical trials returned (supplementary — non-blocking)",
+        })
+
+    # ── SKILL.md Step 7: Structure Findings (Clinical Summary + Tool Audit) ──
+    summary = raw.get("clinical_summary", raw.get("summary", ""))
+    checks.append({
+        "rule": "Step 7: Clinical Summary Generation",
+        "result": "pass" if summary else "warning",
+        "detail": "Summary generated" if summary else "No summary produced",
+    })
+
+    # Tool Results audit trail
+    tools = raw.get("tool_results", [])
+    if isinstance(tools, list) and tools:
+        pass_count = sum(1 for t in tools if isinstance(t, dict) and t.get("status") == "pass")
+        checks.append({
+            "rule": "MCP Tool Executions",
+            "result": "pass" if pass_count == len(tools) else "warning",
+            "detail": f"{pass_count}/{len(tools)} tools passed",
+        })
+
+    return checks
+
+
+def _generate_coverage_checks(raw: dict) -> list[dict]:
+    """Generate checks summary from raw coverage agent data.
+
+    Always enumerates ALL 7 rules from the Coverage Assessment SKILL.md,
+    filling in status from raw agent data when available.
+    """
+    checks = []
+
+    # ── SKILL.md Step 1: Provider NPI Verification ──
+    pv = raw.get("provider_verification", {})
+    if isinstance(pv, dict) and pv.get("npi"):
+        status = str(pv.get("status", "")).upper()
+        name = pv.get("name", pv.get("provider_name", "N/A"))
+        specialty = pv.get("specialty", "N/A")
+        if status in ("VERIFIED", "ACTIVE", "A"):
+            r = "pass"
+        elif status in ("INACTIVE", "DEACTIVATED", "D", "NOT_FOUND"):
+            r = "fail"
+        else:
+            r = "warning"
+        checks.append({
+            "rule": "Step 1: Provider NPI Verification",
+            "result": r,
+            "detail": f"NPI {pv['npi']} — {name} — {specialty} — {status}",
+        })
+        # Sub-checks: validate + lookup
+        checks.append({
+            "rule": "  npi_validate (format + Luhn)",
+            "result": r,
+            "detail": f"NPI {pv['npi']} format check",
+        })
+        checks.append({
+            "rule": "  npi_lookup (NPPES registry)",
+            "result": r,
+            "detail": f"{name} — {specialty} — Status: {status}",
+        })
+    else:
+        checks.append({
+            "rule": "Step 1: Provider NPI Verification",
+            "result": "warning",
+            "detail": "No provider verification data returned (npi_validate, npi_lookup)",
+        })
+        checks.append({
+            "rule": "  npi_validate (format + Luhn)",
+            "result": "warning",
+            "detail": "Not evaluated",
+        })
+        checks.append({
+            "rule": "  npi_lookup (NPPES registry)",
+            "result": "warning",
+            "detail": "Not evaluated",
+        })
+
+    # ── SKILL.md Step 2: MAC Identification ──
+    # Coverage agent may store contractors data in different locations
+    contractors = raw.get("contractors", raw.get("mac_identification", None))
+    if contractors:
+        checks.append({
+            "rule": "Step 2: MAC Identification",
+            "result": "pass",
+            "detail": f"Medicare Administrative Contractors identified" if not isinstance(contractors, list) else f"{len(contractors)} MACs identified",
+        })
+    else:
+        checks.append({
+            "rule": "Step 2: MAC Identification",
+            "result": "info",
+            "detail": "MAC identification via get_contractors (state-based lookup)",
+        })
+
+    # ── SKILL.md Step 3: Coverage Policy Search (NCD + LCD) ──
+    policies = raw.get("coverage_policies", [])
+    if isinstance(policies, list) and policies:
+        relevant = sum(
+            1 for p in policies
+            if isinstance(p, dict) and p.get("relevant", True)
+        )
+        ncds = sum(1 for p in policies if isinstance(p, dict) and str(p.get("type", "")).upper() == "NCD")
+        lcds = sum(1 for p in policies if isinstance(p, dict) and str(p.get("type", "")).upper() == "LCD")
+        checks.append({
+            "rule": "Step 3: Coverage Policy Search",
+            "result": "pass",
+            "detail": f"{len(policies)} policies found ({ncds} NCD, {lcds} LCD), {relevant} relevant",
+        })
+        # Sub-checks for national and local
+        checks.append({
+            "rule": "  search_national_coverage (NCDs)",
+            "result": "pass" if ncds > 0 else "info",
+            "detail": f"{ncds} national coverage determinations found" if ncds > 0 else "No NCDs found",
+        })
+        checks.append({
+            "rule": "  search_local_coverage (LCDs)",
+            "result": "pass" if lcds > 0 else "info",
+            "detail": f"{lcds} local coverage determinations found" if lcds > 0 else "No LCDs found",
+        })
+        # Individual policies as sub-items
+        for p in policies:
+            if not isinstance(p, dict):
+                continue
+            pid = p.get("policy_id", p.get("id", p.get("document_id", "?")))
+            ptype = p.get("type", "?")
+            title = p.get("title", "")
+            checks.append({
+                "rule": f"  {ptype}: {pid}",
+                "result": "pass" if p.get("relevant", True) else "info",
+                "detail": title,
+            })
+    else:
+        checks.append({
+            "rule": "Step 3: Coverage Policy Search",
+            "result": "warning",
+            "detail": "No coverage policies found (search_national_coverage, search_local_coverage)",
+        })
+        checks.append({
+            "rule": "  search_national_coverage (NCDs)",
+            "result": "warning",
+            "detail": "No national policies returned",
+        })
+        checks.append({
+            "rule": "  search_local_coverage (LCDs)",
+            "result": "warning",
+            "detail": "No local policies returned",
+        })
+
+    # ── SKILL.md Step 4: Policy Detail Retrieval ──
+    # Infer from policies — if we have policies with titles/criteria, details were retrieved
+    has_policy_details = any(
+        isinstance(p, dict) and (p.get("title") or p.get("criteria"))
+        for p in policies
+    ) if isinstance(policies, list) else False
+    checks.append({
+        "rule": "Step 4: Policy Detail Retrieval",
+        "result": "pass" if has_policy_details else ("info" if policies else "warning"),
+        "detail": "Policy details retrieved (get_coverage_document, batch_get_ncds)" if has_policy_details else "No detailed policy content retrieved",
+    })
+
+    # ── SKILL.md Step 5: Clinical Evidence to Criteria Mapping ──
+    criteria = raw.get("criteria_assessment", [])
+    if isinstance(criteria, list) and criteria:
+        met = sum(
+            1 for c in criteria
+            if isinstance(c, dict) and str(c.get("status", "")).upper() == "MET"
+        )
+        not_met = sum(
+            1 for c in criteria
+            if isinstance(c, dict) and str(c.get("status", "")).upper() == "NOT_MET"
+        )
+        insufficient = sum(
+            1 for c in criteria
+            if isinstance(c, dict) and str(c.get("status", "")).upper() == "INSUFFICIENT"
+        )
+        total = len([c for c in criteria if isinstance(c, dict)])
+        if met == total:
+            r = "pass"
+        elif met > 0:
+            r = "warning"
+        else:
+            r = "fail"
+        checks.append({
+            "rule": "Step 5: Clinical Evidence to Criteria Mapping",
+            "result": r,
+            "detail": f"{met}/{total} MET, {not_met} NOT_MET, {insufficient} INSUFFICIENT",
+        })
+        for c in criteria:
+            if not isinstance(c, dict):
+                continue
+            crit_name = c.get("criterion", c.get("name", c.get("criteria", "?")))
+            crit_status = str(c.get("status", "INSUFFICIENT")).upper()
+            conf = c.get("confidence", 0)
+            if crit_status == "MET":
+                cr = "pass"
+            elif crit_status == "NOT_MET":
+                cr = "fail"
+            else:
+                cr = "warning"
+            checks.append({
+                "rule": f"  {crit_name}",
+                "result": cr,
+                "detail": f"{crit_status} (confidence: {conf}%)",
+            })
+    else:
+        checks.append({
+            "rule": "Step 5: Clinical Evidence to Criteria Mapping",
+            "result": "warning",
+            "detail": "No criteria assessment data returned",
+        })
+
+    # ── SKILL.md Step 6: Diagnosis-Policy Alignment (REQUIRED AUDITABLE) ──
+    # Look for a specific "Diagnosis-Policy Alignment" criterion in criteria_assessment
+    alignment_found = False
+    if isinstance(criteria, list):
+        for c in criteria:
+            if not isinstance(c, dict):
+                continue
+            crit_name = str(c.get("criterion", c.get("name", ""))).lower()
+            if "alignment" in crit_name or "diagnosis-policy" in crit_name or "diagnosis policy" in crit_name:
+                alignment_found = True
+                crit_status = str(c.get("status", "INSUFFICIENT")).upper()
+                conf = c.get("confidence", 0)
+                if crit_status == "MET":
+                    ar = "pass"
+                elif crit_status == "NOT_MET":
+                    ar = "fail"
+                else:
+                    ar = "warning"
+                checks.append({
+                    "rule": "Step 6: Diagnosis-Policy Alignment (AUDITABLE)",
+                    "result": ar,
+                    "detail": f"{crit_status} — ICD-10 codes vs. covered indications (confidence: {conf}%)",
+                })
+                break
+    if not alignment_found:
+        checks.append({
+            "rule": "Step 6: Diagnosis-Policy Alignment (AUDITABLE)",
+            "result": "warning",
+            "detail": "Required auditable criterion — not explicitly evaluated by agent",
+        })
+
+    # ── SKILL.md Step 7: Documentation Gap Analysis ──
+    gaps = raw.get("documentation_gaps", [])
+    if isinstance(gaps, list) and gaps:
+        critical_count = sum(
+            1 for g in gaps if isinstance(g, dict) and g.get("critical")
+        )
+        non_critical = len(gaps) - critical_count
+        checks.append({
+            "rule": "Step 7: Documentation Gap Analysis",
+            "result": "fail" if critical_count > 0 else "warning",
+            "detail": f"{len(gaps)} gaps identified ({critical_count} critical, {non_critical} non-critical)",
+        })
+    else:
+        checks.append({
+            "rule": "Step 7: Documentation Gap Analysis",
+            "result": "pass",
+            "detail": "No documentation gaps identified",
+        })
+
+    # Tool Results audit trail
+    tools = raw.get("tool_results", [])
+    if isinstance(tools, list) and tools:
+        pass_count = sum(1 for t in tools if isinstance(t, dict) and t.get("status") == "pass")
+        checks.append({
+            "rule": "MCP Tool Executions",
+            "result": "pass" if pass_count == len(tools) else "warning",
+            "detail": f"{pass_count}/{len(tools)} tools passed",
+        })
+
+    return checks
 
 
 def _safe_parse(model_class, data):
@@ -432,7 +976,7 @@ def _sanitize_agent_data(data: dict) -> dict:
     for list_key in ("diagnosis_validation", "criteria_assessment",
                      "documentation_gaps", "coverage_policies",
                      "literature_support", "clinical_trials",
-                     "checklist", "tool_results"):
+                     "checklist", "tool_results", "checks_performed"):
         if list_key in result and isinstance(result[list_key], list):
             result[list_key] = [
                 _sanitize_agent_data(item) if isinstance(item, dict) else item

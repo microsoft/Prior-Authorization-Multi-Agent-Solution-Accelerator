@@ -20,6 +20,13 @@ class ToolResult(BaseModel):
 # --- Per-agent result models ---
 
 
+class AgentCheck(BaseModel):
+    """A single rule/check that an agent performed."""
+    rule: str = ""
+    result: str = "info"  # "pass", "fail", "warning", "info"
+    detail: str = ""
+
+
 class ChecklistItem(BaseModel):
     item: str = ""
     status: str = "incomplete"  # "complete", "incomplete", "missing"
@@ -28,6 +35,7 @@ class ChecklistItem(BaseModel):
 
 class ComplianceResult(BaseModel):
     agent_name: str = "Compliance Agent"
+    checks_performed: list[AgentCheck] = []
     checklist: list[ChecklistItem] = []
     overall_status: str = "incomplete"
     missing_items: list[str] = []
@@ -68,6 +76,7 @@ class ClinicalTrialReference(BaseModel):
 
 class ClinicalResult(BaseModel):
     agent_name: str = "Clinical Reviewer Agent"
+    checks_performed: list[AgentCheck] = []
     diagnosis_validation: list[DiagnosisValidation] = []
     clinical_extraction: ClinicalExtraction | None = None
     literature_support: list[LiteratureReference] = []
@@ -111,6 +120,7 @@ class DocumentationGap(BaseModel):
 
 class CoverageResult(BaseModel):
     agent_name: str = "Coverage Agent"
+    checks_performed: list[AgentCheck] = []
     provider_verification: ProviderVerification | None = None
     coverage_policies: list[CoveragePolicy] = []
     criteria_assessment: list[CriterionAssessment] = []
