@@ -985,6 +985,223 @@ agents/<agent>.py       → Tool allowlist (security boundary)
 agents/orchestrator.py  → Pipeline phases (only if adding a new agent role)
 ```
 
+### Add a new agent
+
+The multi-agent pipeline can be extended with additional agent roles (e.g., a
+Pharmacy Benefits agent, Prior Treatment Verification agent, or Financial
+Review agent). Each agent follows a consistent pattern across seven files:
+
+**Step 1 — Agent file** (`backend/app/agents/new_agent.py`):
+
+Create a new agent module with the dual-mode pattern (skills vs prompt):
+
+```python
+import json
+from pathlib import Path
+from agent_framework_claude import ClaudeAgent
+from app.agents._parse import parse_json_response
+from app.config import settings
+from app.tools.mcp_config import NEW_AGENT_MCP_SERVERS  # if using MCP
+
+_BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
+
+# Inline prompt for prompt mode (USE_SKILLS=false)
+NEW_AGENT_INSTRUCTIONS = """\
+You are a [Role Name] Agent for prior authorization review.
+...your instructions, output format, rules...
+"""
+
+async def create_new_agent() -> ClaudeAgent:
+    if settings.USE_SKILLS:
+        return ClaudeAgent(
+            instructions=(
+                "You are a [Role Name] Agent. "
+                "Use your [skill-name] Skill."
+            ),
+            default_options={
+                "cwd": _BACKEND_DIR,
+                "setting_sources": ["user", "project"],
+                "allowed_tools": [
+                    "Skill",
+                    "mcp__server-name__tool_name",  # if using MCP
+                ],
+                "mcp_servers": NEW_AGENT_MCP_SERVERS,  # if using MCP
+                "permission_mode": "bypassPermissions",
+            },
+        )
+    return ClaudeAgent(
+        instructions=NEW_AGENT_INSTRUCTIONS,
+        default_options={
+            "mcp_servers": NEW_AGENT_MCP_SERVERS,  # if using MCP
+            "permission_mode": "bypassPermissions",
+        },
+    )
+
+async def run_new_review(request_data: dict, upstream: dict | None = None) -> dict:
+    agent = await create_new_agent()
+    prompt = f"""Review the following prior authorization request.
+
+--- REQUEST ---
+Patient: {request_data.get('patient_name')}
+...build prompt from request_data and any upstream findings...
+--- END REQUEST ---
+
+Return your structured JSON assessment."""
+
+    async with agent:
+        response = await agent.run(prompt)
+    return parse_json_response(response)
+```
+
+Key conventions:
+- `create_*()` factory returns a `ClaudeAgent` configured for either mode
+- `run_*()` builds the prompt, executes the agent, and parses JSON output
+- `parse_json_response()` (from `app.agents._parse`) extracts JSON from agent
+  output robustly — no exceptions thrown on parse failure
+- Agents that need upstream results accept them as an optional dict parameter
+- Agents without MCP tools omit `mcp_servers` and `allowed_tools` (except `"Skill"`)
+
+**Step 2 — SKILL.md** (`backend/.claude/skills/new-agent/SKILL.md`):
+
+Create the skill file with the same content as the inline instructions, plus
+quality checks and common mistakes sections:
+
+```markdown
+# [Role Name] Skill
+
+## Description
+One-liner describing what this agent does.
+
+## Instructions
+[Same content as NEW_AGENT_INSTRUCTIONS — keep synced]
+
+### Available MCP Tools (if applicable)
+- `mcp__server-name__tool_name(param)` — Description
+
+### Output Format
+Return JSON:
+{
+    "field": "value"
+}
+
+### Quality Checks
+Before completing, verify:
+- [ ] All required fields present in output
+- [ ] Output is valid JSON
+
+### Common Mistakes to Avoid
+- Do NOT generate fake data when a tool call fails
+- Do NOT make final approval/denial decisions (synthesis agent does that)
+```
+
+**Step 3 — MCP config** (`backend/app/tools/mcp_config.py`):
+
+If the agent uses MCP servers, create an agent-specific server group:
+
+```python
+NEW_AGENT_MCP_SERVERS = {
+    "server-name": NEW_SERVER,
+}
+```
+
+Skip this step if the agent is reasoning-only (like the Compliance Agent).
+
+**Step 4 — Orchestrator** (`backend/app/agents/orchestrator.py`):
+
+Import and register the agent in `run_multi_agent_review()`:
+
+```python
+from app.agents.new_agent import run_new_review
+```
+
+Then insert it at the appropriate phase. The pipeline has four phases:
+
+```
+Phase 1 (parallel):   Compliance + Clinical  → asyncio.gather()
+Phase 2 (sequential): Coverage (needs Clinical findings)
+Phase 3 (synthesis):  Reasoning-only, all results as input
+Phase 4 (audit):      Build audit trail + justification PDF
+```
+
+To add a parallel agent (no upstream dependencies):
+```python
+# In Phase 1 — add alongside compliance and clinical
+new_task = asyncio.create_task(
+    _safe_run("New Agent", run_new_review, request_data)
+)
+compliance_result, clinical_result, new_result = await asyncio.gather(
+    compliance_task, clinical_task, new_task
+)
+```
+
+To add a sequential agent (needs upstream results):
+```python
+# After Phase 1 — parallel with coverage or as a new Phase 2b
+new_result = await _safe_run(
+    "New Agent", run_new_review, request_data, clinical_result
+)
+```
+
+The `_safe_run()` wrapper catches exceptions and returns an error dict so the
+pipeline continues even if one agent fails.
+
+**Step 5 — Synthesis prompt** (`backend/app/agents/orchestrator.py`):
+
+Add the new agent's output to the synthesis prompt so the decision gates
+can consider it:
+
+```python
+prompt = f"""...existing synthesis prompt...
+
+--- NEW AGENT REPORT ---
+{json.dumps(new_result, indent=2, default=str)}
+
+--- END REPORTS ---
+..."""
+```
+
+Also update `SYNTHESIS_INSTRUCTIONS` (prompt mode) and
+`backend/.claude/skills/synthesis-decision/SKILL.md` (skills mode) to
+describe what the synthesis agent should do with the new findings.
+
+**Step 6 — SSE progress events** (`backend/app/agents/orchestrator.py`):
+
+Add the new agent to progress event emissions so the frontend shows its
+status. Add an entry to the `agents` dict in `_emit()` calls:
+
+```python
+await _emit({
+    "phase": "phase_1",
+    "agents": {
+        "compliance": {"status": "running", "detail": "..."},
+        "clinical": {"status": "running", "detail": "..."},
+        "new_agent": {"status": "running", "detail": "Starting..."},
+    },
+})
+```
+
+Update the frontend's `ReviewProgress` type in `frontend/lib/types.ts` to
+include the new agent ID, and update `ProgressTracker` to render it.
+
+**Step 7 — Audit trail and PDF** (optional):
+
+If the new agent produces data for the audit justification:
+- Update `_build_audit_trail()` to extract data sources from the new result
+- Update `_generate_audit_justification()` to include a section for the new findings
+- Update `generate_audit_justification_pdf()` in `audit_pdf.py` to render the data
+
+**Summary of files touched:**
+
+| File | Change |
+|------|--------|
+| `agents/new_agent.py` | New file: agent factory + run function |
+| `.claude/skills/new-agent/SKILL.md` | New file: skill instructions (synced with inline prompt) |
+| `tools/mcp_config.py` | Add server group (if agent uses MCP) |
+| `agents/orchestrator.py` | Import, phase registration, synthesis prompt, SSE events |
+| `frontend/lib/types.ts` | Add agent ID to `AgentId` type and `ReviewProgress` |
+| `frontend/components/progress-tracker.tsx` | Render new agent status |
+| `services/audit_pdf.py` | Render new agent data in PDF (optional) |
+
 ### Use MCP with non-Claude models
 
 Use `MCPStreamableHTTPTool` from the Agent Framework with a custom
