@@ -13,8 +13,9 @@ from pathlib import Path
 
 from agent_framework_claude import ClaudeAgent
 
-from app.agents._parse import parse_json_response
+from app.agents._parse import parse_json_response, pydantic_to_output_format
 from app.config import settings
+from app.models.schemas import ComplianceResult
 
 _BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
 
@@ -100,7 +101,13 @@ async def create_compliance_agent() -> ClaudeAgent:
 
     In skills mode, uses SKILL.md discovery from .claude/skills/compliance-review/.
     In prompt mode, uses inline COMPLIANCE_INSTRUCTIONS.
+
+    Uses structured output (output_format) to enforce consistent JSON
+    matching the ComplianceResult schema, eliminating non-deterministic
+    field naming from LLM output.
     """
+    _output_format = pydantic_to_output_format(ComplianceResult)
+
     if settings.USE_SKILLS:
         return ClaudeAgent(
             instructions=(
@@ -112,12 +119,14 @@ async def create_compliance_agent() -> ClaudeAgent:
                 "setting_sources": ["user", "project"],
                 "allowed_tools": ["Skill"],
                 "permission_mode": "bypassPermissions",
+                "output_format": _output_format,
             },
         )
     return ClaudeAgent(
         instructions=COMPLIANCE_INSTRUCTIONS,
         default_options={
             "permission_mode": "bypassPermissions",
+            "output_format": _output_format,
         },
     )
 

@@ -3,16 +3,84 @@
 import json
 import logging
 import re
+from typing import Any
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+
+def pydantic_to_output_format(
+    model_class: type[BaseModel],
+    exclude_fields: tuple[str, ...] = ("agent_name", "checks_performed"),
+) -> dict[str, Any]:
+    """Convert a Pydantic model class to a ClaudeAgent output_format dict.
+
+    The agent framework's ``output_format`` option accepts::
+
+        {"type": "json_schema", "schema": <JSON Schema dict>}
+
+    This helper generates the schema from the Pydantic model using
+    ``model_json_schema()``, which handles nested models, ``$defs``,
+    ``$ref``, Optional fields, and defaults automatically.
+
+    ``exclude_fields`` strips UI-only fields (e.g. ``agent_name``,
+    ``checks_performed``) from the schema so the LLM focuses on
+    domain-specific fields rather than dumping data into flexible
+    catch-all arrays.  These fields are regenerated post-hoc in the
+    response builder.
+
+    Usage::
+
+        from app.models.schemas import ComplianceResult
+        agent = ClaudeAgent(
+            instructions="...",
+            default_options={
+                "output_format": pydantic_to_output_format(ComplianceResult),
+            },
+        )
+    """
+    import copy
+
+    schema = copy.deepcopy(model_class.model_json_schema())
+
+    # Strip UI-only fields from schema properties and required list
+    props = schema.get("properties", {})
+    for field in exclude_fields:
+        props.pop(field, None)
+    req = schema.get("required", [])
+    if req:
+        schema["required"] = [r for r in req if r not in exclude_fields]
+
+    # Remove unused $defs that only served excluded fields
+    defs = schema.get("$defs", {})
+    if defs and exclude_fields:
+        # Collect all $ref references still used in the schema
+        schema_str = json.dumps(schema)
+        unused = [
+            name for name in list(defs.keys())
+            if f'"$ref": "#/$defs/{name}"' not in schema_str
+            and f'"$defs/{name}"' not in schema_str
+        ]
+        for name in unused:
+            defs.pop(name, None)
+        if not defs:
+            schema.pop("$defs", None)
+
+    return {
+        "type": "json_schema",
+        "schema": schema,
+    }
 
 
 def parse_json_response(response) -> dict:
     """Extract JSON from an agent response, with fallback.
 
-    The agent response may contain interleaved tool-call results and
-    explanatory text before / after the final JSON object.  This parser
-    tries multiple strategies in order of reliability:
+    Strategy 0 (preferred): If the response carries ``structured_output``
+    (set automatically when the agent was created with ``output_format``),
+    return it directly — no text parsing or sanitization needed.
+
+    Fallback strategies for text-based responses:
 
     1. JSON inside a markdown code fence (```json ... ``` or ``` ... ```)
     2. Brace-matched extraction working **backwards** from the last ``}``
@@ -25,6 +93,26 @@ def parse_json_response(response) -> dict:
 
     Returns parsed dict on success, or an error dict on failure.
     """
+    # --- Strategy 0: structured output (from output_format option) ---
+    if hasattr(response, "structured_output") and response.structured_output is not None:
+        so = response.structured_output
+        if isinstance(so, dict):
+            logger.info("[parse] Strategy 0: structured_output (dict, %d keys)", len(so))
+            return so
+        if isinstance(so, str):
+            try:
+                parsed = json.loads(so)
+                if isinstance(parsed, dict):
+                    logger.info("[parse] Strategy 0: structured_output (parsed string, %d keys)", len(parsed))
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+        if hasattr(so, "model_dump"):
+            dumped = so.model_dump()
+            logger.info("[parse] Strategy 0: structured_output (Pydantic model, %d keys)", len(dumped))
+            return dumped
+        logger.warning("[parse] Strategy 0: structured_output present but unusable (type=%s)", type(so).__name__)
+
     # --- Diagnostic logging ---
     logger.info(
         "[parse] response type=%s, has .text=%s",

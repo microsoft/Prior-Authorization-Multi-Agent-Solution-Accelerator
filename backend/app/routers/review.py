@@ -908,8 +908,9 @@ def _sanitize_agent_data(data: dict) -> dict:
     # Instead, soft-merge: merge inner dict into top level, only for sub-keys
     # that don't already exist (prevents overwriting direct top-level data).
     _WRAPPER_KEYS = (
-        "clinical_review", "coverage_assessment", "compliance_review",
-        "coverage_review", "clinical_assessment", "prior_authorization_review",
+        "clinical_review", "clinical_review_report", "coverage_assessment",
+        "compliance_review", "coverage_review", "clinical_assessment",
+        "prior_authorization_review",
     )
     for wrapper in _WRAPPER_KEYS:
         if wrapper in result and isinstance(result[wrapper], dict):
@@ -919,17 +920,33 @@ def _sanitize_agent_data(data: dict) -> dict:
                     result[k] = v
             break
 
+    # --- Field name aliasing (BEFORE list extraction so aliases are in place) ---
+    # Clinical agent: "supporting_literature" → "literature_support"
+    if "supporting_literature" in result and "literature_support" not in result:
+        result["literature_support"] = result.pop("supporting_literature")
+
+    # Clinical agent: "relevant_clinical_trials" → "clinical_trials"
+    if "relevant_clinical_trials" in result and "clinical_trials" not in result:
+        result["clinical_trials"] = result.pop("relevant_clinical_trials")
+
+    # Clinical agent: "recommendations" (plural) → "recommendation" (singular)
+    if "recommendations" in result and "recommendation" not in result:
+        result["recommendation"] = result.pop("recommendations")
+
     # --- Extract nested lists from wrapper dicts ---
     # Agent may return diagnosis_validation as {"validation_results": [...], ...}
     # or {"diagnosis_codes": [...], ...} instead of a plain list
     _LIST_EXTRACT_KEYS = {
         "diagnosis_validation": ("validation_results", "diagnosis_codes", "codes", "results", "details"),
-        "literature_support": ("references", "articles", "key_references", "sources", "key_citations", "relevant_articles"),
+        "literature_support": ("references", "articles", "key_references", "sources", "key_citations", "relevant_articles", "key_findings"),
         "clinical_trials": ("trials", "relevant_trials", "diagnostic_trials",
                             "treatment_trials", "active_trials", "highlighted_trials",
-                            "recommended_for_referral", "potentially_eligible_trials"),
+                            "recommended_for_referral", "potentially_eligible_trials",
+                            "high_relevance_trials", "relevant_trial_ids",
+                            "relevant_recruiting_trials"),
         "coverage_policies": ("policies", "relevant_policies"),
-        "criteria_assessment": ("criteria", "assessment_criteria", "results", "criteria_evaluation"),
+        "criteria_assessment": ("criteria", "assessment_criteria", "results",
+                                "criteria_evaluation", "medical_necessity_criteria"),
         "documentation_gaps": ("gaps",),
     }
     for field, extract_keys in _LIST_EXTRACT_KEYS.items():
@@ -959,14 +976,6 @@ def _sanitize_agent_data(data: dict) -> dict:
 
     # --- Field name remapping for known agent variations ---
 
-    # Clinical agent: "supporting_literature" → "literature_support"
-    if "supporting_literature" in result and "literature_support" not in result:
-        result["literature_support"] = result.pop("supporting_literature")
-
-    # Clinical agent: "relevant_clinical_trials" → "clinical_trials"
-    if "relevant_clinical_trials" in result and "clinical_trials" not in result:
-        result["clinical_trials"] = result.pop("relevant_clinical_trials")
-
     # Clinical agent: "medical_necessity_determination" → extract clinical_summary
     if "medical_necessity_determination" in result and isinstance(result["medical_necessity_determination"], dict):
         mnd = result["medical_necessity_determination"]
@@ -989,7 +998,7 @@ def _sanitize_agent_data(data: dict) -> dict:
     if "diagnosis_code_validation" in result and "diagnosis_validation" not in result:
         dcv = result.pop("diagnosis_code_validation")
         if isinstance(dcv, dict):
-            for key in ("details", "validation_results", "diagnosis_codes", "codes"):
+            for key in ("details", "validation_results", "diagnosis_codes", "codes", "results"):
                 if key in dcv and isinstance(dcv[key], list):
                     result["diagnosis_validation"] = dcv[key]
                     break
@@ -1045,6 +1054,13 @@ def _sanitize_agent_data(data: dict) -> dict:
                     ]
                     if parts:
                         result["clinical_summary"] = "; ".join(parts)
+            # Fallback: try justification list directly
+            if "clinical_summary" not in result:
+                justification = mna.get("justification", mna.get("rationale", []))
+                if isinstance(justification, list) and justification:
+                    result["clinical_summary"] = "; ".join(str(j) for j in justification)
+                elif isinstance(justification, str) and justification:
+                    result["clinical_summary"] = justification
 
     # Clinical/Coverage agent: "final_determination" → extract clinical_summary fallback
     if "final_determination" in result and isinstance(result["final_determination"], dict):
@@ -1115,9 +1131,9 @@ def _sanitize_agent_data(data: dict) -> dict:
             # Extract NCD policies
             ncds = cpa.get("national_coverage_determinations", {})
             if isinstance(ncds, dict):
-                for ncd_key in ("relevant_ncds", "related_ncds", "related_ncds_reviewed", "ncds", "policies"):
+                for ncd_key in ("relevant_ncds", "related_ncds", "related_ncds_reviewed", "ncds", "policies", "applicable_ncds", "applicable_general_ncds"):
                     items = ncds.get(ncd_key, [])
-                    if isinstance(items, list):
+                    if isinstance(items, list) and items:
                         for item in items:
                             if isinstance(item, dict):
                                 item.setdefault("type", "NCD")
@@ -1128,9 +1144,9 @@ def _sanitize_agent_data(data: dict) -> dict:
             # Extract LCD policies
             lcds = cpa.get("local_coverage_determinations", {})
             if isinstance(lcds, dict):
-                for lcd_key in ("applicable_lcds", "relevant_policies", "related_lcds", "related_lcds_reviewed", "lcds", "policies"):
+                for lcd_key in ("applicable_lcds", "relevant_policies", "relevant_lcds", "related_lcds", "related_lcds_reviewed", "lcds", "policies"):
                     items = lcds.get(lcd_key, [])
-                    if isinstance(items, list):
+                    if isinstance(items, list) and items:
                         for item in items:
                             if isinstance(item, dict):
                                 item.setdefault("type", "LCD")
@@ -1171,9 +1187,9 @@ def _sanitize_agent_data(data: dict) -> dict:
             # Extract NCDs from various nested structures
             ncd_section = cps.get("national_coverage_determinations", {})
             if isinstance(ncd_section, dict):
-                for ncd_key in ("relevant_ncds", "ncds", "policies"):
+                for ncd_key in ("relevant_ncds", "ncds", "policies", "applicable_ncds", "applicable_general_ncds"):
                     items = ncd_section.get(ncd_key, [])
-                    if isinstance(items, list):
+                    if isinstance(items, list) and items:
                         for item in items:
                             if isinstance(item, dict):
                                 item.setdefault("type", "NCD")
@@ -1187,7 +1203,7 @@ def _sanitize_agent_data(data: dict) -> dict:
             if isinstance(lcd_section, dict):
                 for lcd_key in ("related_lcds", "related_lcds_reviewed", "relevant_lcds", "lcds", "policies"):
                     items = lcd_section.get(lcd_key, [])
-                    if isinstance(items, list):
+                    if isinstance(items, list) and items:
                         for item in items:
                             if isinstance(item, dict):
                                 item.setdefault("type", "LCD")
@@ -1265,7 +1281,7 @@ def _sanitize_agent_data(data: dict) -> dict:
         dga = result.pop("documentation_gap_analysis")
         if "documentation_gaps" not in result or not result.get("documentation_gaps"):
             all_gaps = []
-            for gap_key in ("critical_gaps", "moderate_gaps", "minor_gaps", "gaps"):
+            for gap_key in ("critical_gaps", "moderate_gaps", "minor_gaps", "gaps", "gaps_identified"):
                 gaps = dga.get(gap_key, [])
                 if isinstance(gaps, list):
                     all_gaps.extend(gaps)
@@ -1412,16 +1428,24 @@ def _sanitize_agent_data(data: dict) -> dict:
                 result["notes"] = result.pop(alias)
                 break
 
-    # CriterionAssessment: "evidence" as dict → coerce to string
-    if "evidence" in result and isinstance(result["evidence"], dict):
+    # CriterionAssessment: "evidence" — normalize to list[str]
+    # The schema expects list[str]. Agent may return dict, str, list[dict], or list[str].
+    if "evidence" in result:
         ev = result["evidence"]
-        findings = ev.get("supporting_findings", [])
-        if isinstance(findings, list) and findings:
-            result["evidence"] = "; ".join(str(f) for f in findings)
-        else:
-            result["evidence"] = str(ev)
-    elif "evidence" in result and isinstance(result["evidence"], list):
-        result["evidence"] = "; ".join(str(e) for e in result["evidence"])
+        if isinstance(ev, dict):
+            findings = ev.get("supporting_findings", [])
+            if isinstance(findings, list) and findings:
+                result["evidence"] = [str(f) for f in findings]
+            else:
+                result["evidence"] = [str(ev)]
+        elif isinstance(ev, str):
+            result["evidence"] = [ev] if ev else []
+        elif isinstance(ev, list):
+            # Keep as list[str] — convert any non-str items
+            result["evidence"] = [
+                str(item) if not isinstance(item, str) else item
+                for item in ev
+            ]
 
     # CriterionAssessment: normalize non-standard statuses
     if "status" in result and isinstance(result["status"], str):
@@ -1500,6 +1524,39 @@ def _sanitize_agent_data(data: dict) -> dict:
             for k, v in pf.items():
                 if k not in ce:
                     ce[k] = v
+        # demographics → chief_complaint (e.g., "68-year-old Male")
+        if "demographics" in ce and isinstance(ce["demographics"], dict):
+            demo = ce.pop("demographics")
+            if not ce.get("chief_complaint"):
+                parts = []
+                if demo.get("age"):
+                    parts.append(f"{demo['age']}-year-old")
+                if demo.get("sex"):
+                    parts.append(str(demo["sex"]).lower())
+                if parts:
+                    ce["chief_complaint"] = " ".join(parts)
+        # risk_factors → severity_indicators + history_of_present_illness
+        if "risk_factors" in ce and isinstance(ce["risk_factors"], dict):
+            rf = ce.pop("risk_factors")
+            indicators = []
+            hpi_parts = []
+            for rf_key, rf_val in rf.items():
+                if isinstance(rf_val, dict):
+                    parts = []
+                    for k, v in rf_val.items():
+                        if k == "confidence":
+                            continue
+                        if isinstance(v, (str, int, float, bool)):
+                            parts.append(f"{k}: {v}")
+                    desc = f"{rf_key}: {', '.join(parts)}" if parts else rf_key
+                    indicators.append(desc)
+                    hpi_parts.append(desc)
+                elif isinstance(rf_val, (str, int, float)):
+                    indicators.append(f"{rf_key}: {rf_val}")
+            if indicators and not ce.get("severity_indicators"):
+                ce["severity_indicators"] = indicators
+            if hpi_parts and not ce.get("history_of_present_illness"):
+                ce["history_of_present_illness"] = "; ".join(hpi_parts)
         if "patient_characteristics" in ce and isinstance(ce["patient_characteristics"], dict):
             pc = ce.pop("patient_characteristics")
             for k, v in pc.items():
@@ -1572,7 +1629,7 @@ def _sanitize_agent_data(data: dict) -> dict:
                 if isinstance(ce["diagnostic_findings"], list):
                     ce["diagnostic_findings"].append(f"Nodule: {nc_desc}")
                 if not ce.get("chief_complaint"):
-                    ce["chief_complaint"] = f"Pulmonary nodule: {nc.get('size', nc.get('size_cm', nc.get('size_current_cm', '')))} {nc.get('morphology', '')}, {nc.get('location', '')}".strip(", ")
+                    ce["chief_complaint"] = f"Pulmonary nodule: {nc.get('size', nc.get('size_cm', nc.get('size_current_cm', nc.get('size_current', ''))))} {nc.get('morphology', '')}, {nc.get('location', '')}".strip(", ")
         # procedural_safety → diagnostic_findings
         if "procedural_safety" in ce and isinstance(ce["procedural_safety"], dict):
             ps_data = ce["procedural_safety"]
@@ -1673,8 +1730,15 @@ def _sanitize_agent_data(data: dict) -> dict:
                     if desc.strip():
                         treatments.append(desc.strip())
                 if treatments:
-                    ce[pt_key] = treatments
+                    ce["prior_treatments"] = treatments
+                    if pt_key != "prior_treatments":
+                        ce.pop(pt_key, None)
                 break
+        # Rename singular → plural if still present
+        if "prior_treatment" in ce and "prior_treatments" not in ce:
+            ce["prior_treatments"] = ce.pop("prior_treatment")
+            if isinstance(ce["prior_treatments"], str):
+                ce["prior_treatments"] = [ce["prior_treatments"]]
         # medications → prior_treatments fallback
         if "medications" in ce and isinstance(ce["medications"], list):
             if not ce.get("prior_treatments"):
@@ -1757,6 +1821,9 @@ def _sanitize_agent_data(data: dict) -> dict:
                 spec = pv["primary_specialty"]
                 if "description" in spec and "specialty" not in pv:
                     pv["specialty"] = spec["description"]
+            elif "primary_specialty" in pv and isinstance(pv["primary_specialty"], str):
+                if "specialty" not in pv or not pv.get("specialty"):
+                    pv["specialty"] = pv["primary_specialty"]
             # Also handle "primary_taxonomy" (agent uses this name sometimes)
             if "primary_taxonomy" in pv and isinstance(pv["primary_taxonomy"], dict):
                 pt = pv["primary_taxonomy"]
@@ -1773,6 +1840,47 @@ def _sanitize_agent_data(data: dict) -> dict:
             result[nested_key] = _sanitize_agent_data(pv)
         elif nested_key in result and isinstance(result[nested_key], str):
             del result[nested_key]
+
+    # Convert literature_support strings to LiteratureReference-like dicts
+    # Agent may return key_findings as list[str] instead of list[dict]
+    if "literature_support" in result and isinstance(result["literature_support"], list):
+        result["literature_support"] = [
+            {"title": item, "relevance": "Supporting evidence"} if isinstance(item, str)
+            else item
+            for item in result["literature_support"]
+        ]
+
+    # Convert clinical_trials NCT ID strings to ClinicalTrialReference-like dicts
+    # Agent may return high_relevance_trials as list[str] of NCT IDs
+    if "clinical_trials" in result and isinstance(result["clinical_trials"], list):
+        result["clinical_trials"] = [
+            {"nct_id": item, "title": item, "status": "Recruiting"} if isinstance(item, str)
+            else item
+            for item in result["clinical_trials"]
+        ]
+
+    # Convert documentation_gaps strings or dicts with non-standard keys
+    if "documentation_gaps" in result and isinstance(result["documentation_gaps"], list):
+        normalized_gaps = []
+        for g in result["documentation_gaps"]:
+            if isinstance(g, str):
+                normalized_gaps.append({"what": g, "critical": False})
+            elif isinstance(g, dict):
+                # Handle "criticality" field → "critical" boolean
+                if "critical" not in g and "criticality" in g:
+                    crit_val = str(g.get("criticality", "")).upper()
+                    g["critical"] = crit_val in ("CRITICAL", "HIGH", "SEVERE")
+                # Handle "description" → "what" aliasing
+                if "what" not in g:
+                    for alias in ("description", "gap", "gap_description"):
+                        if alias in g:
+                            g["what"] = g.pop(alias)
+                            break
+                # Handle "recommendation" → "request" aliasing
+                if "request" not in g and "recommendation" in g:
+                    g["request"] = g.pop("recommendation")
+                normalized_gaps.append(g)
+        result["documentation_gaps"] = normalized_gaps
 
     # Recursively sanitize known list-of-dict fields
     # Also filter out non-dict items (agents sometimes put strings in lists of objects)

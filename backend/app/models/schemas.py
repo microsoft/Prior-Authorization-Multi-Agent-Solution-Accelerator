@@ -139,6 +139,27 @@ class AgentResults(BaseModel):
     coverage: CoverageResult | None = None
 
 
+class SynthesisOutput(BaseModel):
+    """Output schema for the Synthesis Decision Agent.
+
+    Used as structured output format to enforce consistent JSON from the
+    synthesis agent. Fields match the keys consumed by the orchestrator
+    in run_multi_agent_review().
+    """
+    recommendation: str = "pend_for_review"  # "approve" or "pend_for_review"
+    confidence: float = 0.0
+    confidence_level: str = ""  # "HIGH", "MEDIUM", "LOW"
+    summary: str = ""
+    clinical_rationale: str = ""
+    decision_gate: str = ""  # "gate_1_provider", "gate_2_codes", "gate_3_necessity", "approved"
+    coverage_criteria_met: list[str] = []
+    coverage_criteria_not_met: list[str] = []
+    missing_documentation: list[str] = []
+    policy_references: list[str] = []
+    criteria_summary: str = ""
+    disclaimer: str = ""
+
+
 class AuditTrail(BaseModel):
     data_sources: list[str] = []
     review_started: str = ""

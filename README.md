@@ -514,7 +514,7 @@ prior-auth-maf/
 │       │   └── __init__.py               # Windows Claude SDK patches (CMD bypass, API creds, model mapping, event loop)
 │       ├── agents/
 │       │   ├── __init__.py               # Exports run_multi_agent_review + store functions
-│       │   ├── _parse.py                 # Shared JSON response parser
+│       │   ├── _parse.py                 # Shared JSON response parser + structured output helper
 │       │   ├── compliance_agent.py       # Compliance Agent (no tools)
 │       │   ├── clinical_agent.py         # Clinical Reviewer Agent (icd10-codes, pubmed, clinical-trials MCP)
 │       │   ├── coverage_agent.py         # Coverage Agent (npi-registry, cms-coverage MCP) + Diagnosis-Policy Alignment
@@ -1486,6 +1486,60 @@ the same content is inlined. Anthropic's
 [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching)
 can reduce this cost by ~90% for repeated identical system prompts. The Claude
 SDK may leverage this automatically.
+
+### Structured output
+
+Agents are configured with
+[structured output](https://learn.microsoft.com/en-us/agent-framework/agents/structured-output?pivots=programming-language-python)
+via the `output_format` option in `ClaudeAgentOptions`. This constrains the
+agent's response to match the Pydantic model's JSON schema, reducing
+non-determinism in field names and types.
+
+**How it works:**
+
+The `pydantic_to_output_format()` helper in `_parse.py` converts a Pydantic
+model to the format the SDK expects:
+
+```python
+from app.agents._parse import pydantic_to_output_format
+from app.models.schemas import ClinicalResult
+
+output_format = pydantic_to_output_format(ClinicalResult)
+# Returns: {"type": "json_schema", "schema": <JSON Schema dict>}
+
+agent = ClaudeAgent(
+    instructions="...",
+    default_options={
+        "output_format": output_format,
+        "permission_mode": "bypassPermissions",
+    },
+)
+```
+
+The helper strips UI-only fields (`agent_name`, `checks_performed`) from
+the schema so the LLM focuses on domain-specific fields rather than
+dumping data into flexible catch-all arrays. Unused `$defs` entries are
+also removed to keep the schema compact.
+
+`parse_json_response()` checks `response.structured_output` first
+(Strategy 0) before falling back to text-based JSON parsing strategies.
+This gives deterministic parsing when structured output is available.
+
+**Effectiveness by agent type:**
+
+| Agent | Tools | Structured output | Notes |
+|-------|-------|-------------------|-------|
+| Compliance | None | Works reliably | Schema fully enforced |
+| Synthesis | None (or Skill only) | Works reliably | Schema fully enforced |
+| Clinical | ICD-10, PubMed, Clinical Trials MCP | Partial | Multi-turn tool conversations prevent strict enforcement |
+| Coverage | NPI Registry, CMS Coverage MCP | Partial | Multi-turn tool conversations prevent strict enforcement |
+
+For agents with MCP tools, the `_sanitize_agent_data()` normalizer in
+`review.py` remains essential as a fallback. It handles field name
+aliasing (the LLM may use variant names like `prior_treatment` vs
+`prior_treatments`), type coercion (strings to lists, dicts to flat
+values), and deep extraction of nested structures that don't match the
+expected flat schema.
 
 ### Decision & notification flow
 

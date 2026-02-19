@@ -27,11 +27,12 @@ from pathlib import Path
 
 from agent_framework_claude import ClaudeAgent
 
-from app.agents._parse import parse_json_response
+from app.agents._parse import parse_json_response, pydantic_to_output_format
 from app.agents.compliance_agent import run_compliance_review
 from app.agents.clinical_agent import run_clinical_review
 from app.agents.coverage_agent import run_coverage_review
 from app.config import settings
+from app.models.schemas import SynthesisOutput
 from app.services.audit_pdf import generate_audit_justification_pdf
 from app.services.cpt_validation import validate_procedure_codes
 
@@ -308,15 +309,22 @@ def _normalize_provider_verification(pv: dict | None) -> dict:
             spec.get("description", str(spec)),
         )
     elif not spec or spec == "N/A":
-        # Try taxonomy description fields directly
-        for field in [
-            "primary_taxonomy_description",
-            "taxonomy_description",
-            "taxonomy",
-        ]:
-            if normalized.get(field) and isinstance(normalized[field], str):
-                normalized["specialty"] = normalized[field]
-                break
+        # Try primary_specialty (dict or string)
+        ps = normalized.get("primary_specialty")
+        if isinstance(ps, dict) and ps.get("description"):
+            normalized["specialty"] = ps["description"]
+        elif isinstance(ps, str) and ps:
+            normalized["specialty"] = ps
+        else:
+            # Try taxonomy description fields directly
+            for field in [
+                "primary_taxonomy_description",
+                "taxonomy_description",
+                "taxonomy",
+            ]:
+                if normalized.get(field) and isinstance(normalized[field], str):
+                    normalized["specialty"] = normalized[field]
+                    break
 
     # Normalize status
     status = str(normalized.get("status", "")).upper()
@@ -337,10 +345,68 @@ def _normalize_coverage_result(coverage_result: dict) -> dict:
 
     result = dict(coverage_result)
 
+    # Unwrap top-level wrappers (agent may nest everything inside
+    # "coverage_assessment" or similar keys)
+    for wrapper in ("coverage_assessment", "coverage_review"):
+        if wrapper in result and isinstance(result[wrapper], dict):
+            inner = result.pop(wrapper)
+            for k, v in inner.items():
+                if k not in result:
+                    result[k] = v
+            break
+
     # Normalize provider_verification
     pv = result.get("provider_verification")
     if pv and isinstance(pv, dict):
         result["provider_verification"] = _normalize_provider_verification(pv)
+
+    # Extract criteria from nested criteria_mapping if needed
+    if "criteria_assessment" not in result or not result.get("criteria_assessment"):
+        # Try multiple keys agents may use for criteria
+        for cm_key in ("criteria_mapping", "medical_necessity_criteria_mapping",
+                        "coverage_criteria_assessment", "criteria_evaluation"):
+            cm = result.get(cm_key, {})
+            if isinstance(cm, dict):
+                for key in ("medical_necessity_criteria", "criteria", "criteria_evaluation",
+                             "criteria_details", "assessment_criteria"):
+                    if key in cm and isinstance(cm[key], list):
+                        result["criteria_assessment"] = cm[key]
+                        break
+                if result.get("criteria_assessment"):
+                    break
+
+    # Extract coverage_policies from nested coverage_policy_analysis if needed
+    if "coverage_policies" not in result or not result.get("coverage_policies"):
+        cpa = result.get("coverage_policy_analysis", {})
+        if isinstance(cpa, dict):
+            all_policies = []
+            ncds = cpa.get("national_coverage_determinations", {})
+            if isinstance(ncds, dict):
+                for ncd_key in ("applicable_ncds", "applicable_general_ncds",
+                                "relevant_ncds", "ncds"):
+                    items = ncds.get(ncd_key, [])
+                    if isinstance(items, list) and items:
+                        all_policies.extend(items)
+                        break
+            lcds = cpa.get("local_coverage_determinations", {})
+            if isinstance(lcds, dict):
+                for lcd_key in ("applicable_lcds", "relevant_lcds", "lcds"):
+                    items = lcds.get(lcd_key, [])
+                    if isinstance(items, list) and items:
+                        all_policies.extend(items)
+                        break
+            if all_policies:
+                result["coverage_policies"] = all_policies
+
+    # Extract documentation_gaps from nested documentation_gap_analysis if needed
+    if "documentation_gaps" not in result or not result.get("documentation_gaps"):
+        dga = result.get("documentation_gap_analysis", {})
+        if isinstance(dga, dict):
+            for gap_key in ("gaps_identified", "gaps", "critical_gaps"):
+                items = dga.get(gap_key, [])
+                if isinstance(items, list) and items:
+                    result["documentation_gaps"] = items
+                    break
 
     return result
 
@@ -478,8 +544,12 @@ def _generate_audit_justification(
     Based on the Anthropic prior-auth-review-skill audit_justification.md template.
     """
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    recommendation = synthesis.get("recommendation", "pend_for_review").upper()
+    recommendation = str(synthesis.get("recommendation", "pend_for_review")).upper()
     confidence = synthesis.get("confidence", 0)
+    try:
+        confidence = float(confidence)
+    except (ValueError, TypeError):
+        confidence = 0.0
     confidence_level = synthesis.get("confidence_level", "LOW")
 
     lines = []
@@ -533,9 +603,9 @@ def _generate_audit_justification(
         if extraction.get("chief_complaint"):
             lines.append(f"- Chief Complaint: {extraction['chief_complaint']}")
         if extraction.get("prior_treatments"):
-            lines.append(f"- Prior Treatments: {'; '.join(extraction['prior_treatments'][:5])}")
+            lines.append(f"- Prior Treatments: {'; '.join(str(t) for t in extraction['prior_treatments'][:5])}")
         if extraction.get("severity_indicators"):
-            lines.append(f"- Severity Indicators: {'; '.join(extraction['severity_indicators'][:5])}")
+            lines.append(f"- Severity Indicators: {'; '.join(str(i) for i in extraction['severity_indicators'][:5])}")
         lines.append(f"- Extraction Confidence: {extraction.get('extraction_confidence', 0)}%")
         lines.append("")
 
@@ -559,7 +629,7 @@ def _generate_audit_justification(
             if isinstance(evidence, list) and evidence:
                 lines.append("- **Evidence:**")
                 for e in evidence:
-                    lines.append(f"  - {e}")
+                    lines.append(f"  - {str(e)}")
             elif isinstance(evidence, str) and evidence:
                 lines.append(f"- **Evidence:** {evidence}")
             if c.get("notes"):
@@ -623,7 +693,7 @@ def _generate_audit_justification(
     if met_criteria:
         lines.append("**Key Supporting Facts:**")
         for m in met_criteria:
-            lines.append(f"- {m}")
+            lines.append(f"- {str(m)}")
         lines.append("")
 
     # --- Section 6: Documentation Gaps ---
@@ -635,11 +705,13 @@ def _generate_audit_justification(
         for g in gaps:
             if isinstance(g, dict):
                 critical = "CRITICAL" if g.get("critical") else "Non-critical"
-                lines.append(f"- [{critical}] {g.get('what', 'N/A')}")
+                lines.append(f"- [{critical}] {g.get('what', g.get('description', 'N/A'))}")
                 if g.get("request"):
                     lines.append(f"  Request: {g['request']}")
+            else:
+                lines.append(f"- {str(g)}")
         for m in missing:
-            lines.append(f"- {m}")
+            lines.append(f"- {str(m)}")
         lines.append("")
 
     # --- Section 7: Audit Trail ---
@@ -804,6 +876,18 @@ async def run_multi_agent_review(
         request_data, compliance_result, clinical_result, coverage_result,
         cpt_validation,
     )
+
+    # Coerce list[str] fields from synthesis — agent may return list[dict]
+    for _str_list_key in (
+        "coverage_criteria_met", "coverage_criteria_not_met",
+        "missing_documentation", "policy_references",
+    ):
+        val = synthesis.get(_str_list_key)
+        if isinstance(val, list):
+            synthesis[_str_list_key] = [
+                str(item) if not isinstance(item, str) else item
+                for item in val
+            ]
 
     await _emit({
         "phase": "phase_3", "status": "completed", "progress_pct": 90,
@@ -1000,6 +1084,8 @@ async def _run_synthesis(
     In skills mode, uses SKILL.md discovery from .claude/skills/synthesis-decision/.
     In prompt mode, uses inline SYNTHESIS_INSTRUCTIONS.
     """
+    _output_format = pydantic_to_output_format(SynthesisOutput)
+
     if settings.USE_SKILLS:
         agent = ClaudeAgent(
             instructions=(
@@ -1012,6 +1098,7 @@ async def _run_synthesis(
                 "setting_sources": ["user", "project"],
                 "allowed_tools": ["Skill"],
                 "permission_mode": "bypassPermissions",
+                "output_format": _output_format,
             },
         )
     else:
@@ -1019,6 +1106,7 @@ async def _run_synthesis(
             instructions=SYNTHESIS_INSTRUCTIONS,
             default_options={
                 "permission_mode": "bypassPermissions",
+                "output_format": _output_format,
             },
         )
 

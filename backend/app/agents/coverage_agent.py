@@ -18,8 +18,9 @@ from pathlib import Path
 
 from agent_framework_claude import ClaudeAgent
 
-from app.agents._parse import parse_json_response
+from app.agents._parse import parse_json_response, pydantic_to_output_format
 from app.config import settings
+from app.models.schemas import CoverageResult
 from app.tools.mcp_config import COVERAGE_MCP_SERVERS
 
 _BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
@@ -186,7 +187,13 @@ async def create_coverage_agent() -> ClaudeAgent:
 
     In skills mode, uses SKILL.md discovery from .claude/skills/coverage-assessment/.
     In prompt mode, uses inline COVERAGE_INSTRUCTIONS.
+
+    Uses structured output (output_format) to enforce consistent JSON
+    matching the CoverageResult schema, eliminating non-deterministic
+    field naming from LLM output.
     """
+    _output_format = pydantic_to_output_format(CoverageResult)
+
     if settings.USE_SKILLS:
         return ClaudeAgent(
             instructions=(
@@ -212,6 +219,7 @@ async def create_coverage_agent() -> ClaudeAgent:
                 ],
                 "mcp_servers": COVERAGE_MCP_SERVERS,
                 "permission_mode": "bypassPermissions",
+                "output_format": _output_format,
             },
         )
     return ClaudeAgent(
@@ -219,6 +227,7 @@ async def create_coverage_agent() -> ClaudeAgent:
         default_options={
             "mcp_servers": COVERAGE_MCP_SERVERS,
             "permission_mode": "bypassPermissions",
+            "output_format": _output_format,
         },
     )
 
