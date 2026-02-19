@@ -277,136 +277,27 @@ def _compute_confidence(
     return round(confidence, 2), level
 
 
-def _normalize_provider_verification(pv: dict | None) -> dict:
-    """Normalize provider_verification from agent output.
-
-    The coverage agent may return NPI data in different formats depending
-    on how it maps the NPI Registry MCP response. This normalizes the
-    data into the expected {npi, name, specialty, status, detail} shape.
-    """
-    if not pv or not isinstance(pv, dict):
-        return {}
-
-    normalized = dict(pv)
-
-    # Normalize name — might be missing if agent passed raw NPI data
-    if not normalized.get("name") or normalized["name"] == "N/A":
-        # Try common NPI response field names
-        for field in ["provider_name", "full_name", "last_name"]:
-            if normalized.get(field) and isinstance(normalized[field], str):
-                first = normalized.get("first_name", "")
-                if field == "last_name" and first:
-                    normalized["name"] = f"{first} {normalized[field]}"
-                else:
-                    normalized["name"] = normalized[field]
-                break
-
-    # Normalize specialty — might be a nested dict or missing
-    spec = normalized.get("specialty")
-    if isinstance(spec, dict):
-        normalized["specialty"] = spec.get(
-            "primary_taxonomy_description",
-            spec.get("description", str(spec)),
-        )
-    elif not spec or spec == "N/A":
-        # Try primary_specialty (dict or string)
-        ps = normalized.get("primary_specialty")
-        if isinstance(ps, dict) and ps.get("description"):
-            normalized["specialty"] = ps["description"]
-        elif isinstance(ps, str) and ps:
-            normalized["specialty"] = ps
-        else:
-            # Try taxonomy description fields directly
-            for field in [
-                "primary_taxonomy_description",
-                "taxonomy_description",
-                "taxonomy",
-            ]:
-                if normalized.get(field) and isinstance(normalized[field], str):
-                    normalized["specialty"] = normalized[field]
-                    break
-
-    # Normalize status
-    status = str(normalized.get("status", "")).upper()
-    if status in ("A", "ACTIVE", "VERIFIED"):
-        normalized["status"] = "VERIFIED"
-    elif status in ("D", "DEACTIVATED", "INACTIVE"):
-        normalized["status"] = "INACTIVE"
-    elif not status or status == "N/A":
-        normalized["status"] = "unknown"
-
-    return normalized
-
-
 def _normalize_coverage_result(coverage_result: dict) -> dict:
-    """Normalize the coverage agent output for consistent downstream use."""
+    """Lightweight pass-through for coverage agent output.
+
+    With structured output (output_format), the coverage agent returns data
+    matching the CoverageResult Pydantic schema directly. This function
+    only normalizes the provider_verification status field for display
+    consistency (e.g., 'A' -> 'VERIFIED').
+    """
     if coverage_result.get("error"):
         return coverage_result
 
     result = dict(coverage_result)
 
-    # Unwrap top-level wrappers (agent may nest everything inside
-    # "coverage_assessment" or similar keys)
-    for wrapper in ("coverage_assessment", "coverage_review"):
-        if wrapper in result and isinstance(result[wrapper], dict):
-            inner = result.pop(wrapper)
-            for k, v in inner.items():
-                if k not in result:
-                    result[k] = v
-            break
-
-    # Normalize provider_verification
+    # Normalize provider_verification status for display
     pv = result.get("provider_verification")
     if pv and isinstance(pv, dict):
-        result["provider_verification"] = _normalize_provider_verification(pv)
-
-    # Extract criteria from nested criteria_mapping if needed
-    if "criteria_assessment" not in result or not result.get("criteria_assessment"):
-        # Try multiple keys agents may use for criteria
-        for cm_key in ("criteria_mapping", "medical_necessity_criteria_mapping",
-                        "coverage_criteria_assessment", "criteria_evaluation"):
-            cm = result.get(cm_key, {})
-            if isinstance(cm, dict):
-                for key in ("medical_necessity_criteria", "criteria", "criteria_evaluation",
-                             "criteria_details", "assessment_criteria"):
-                    if key in cm and isinstance(cm[key], list):
-                        result["criteria_assessment"] = cm[key]
-                        break
-                if result.get("criteria_assessment"):
-                    break
-
-    # Extract coverage_policies from nested coverage_policy_analysis if needed
-    if "coverage_policies" not in result or not result.get("coverage_policies"):
-        cpa = result.get("coverage_policy_analysis", {})
-        if isinstance(cpa, dict):
-            all_policies = []
-            ncds = cpa.get("national_coverage_determinations", {})
-            if isinstance(ncds, dict):
-                for ncd_key in ("applicable_ncds", "applicable_general_ncds",
-                                "relevant_ncds", "ncds"):
-                    items = ncds.get(ncd_key, [])
-                    if isinstance(items, list) and items:
-                        all_policies.extend(items)
-                        break
-            lcds = cpa.get("local_coverage_determinations", {})
-            if isinstance(lcds, dict):
-                for lcd_key in ("applicable_lcds", "relevant_lcds", "lcds"):
-                    items = lcds.get(lcd_key, [])
-                    if isinstance(items, list) and items:
-                        all_policies.extend(items)
-                        break
-            if all_policies:
-                result["coverage_policies"] = all_policies
-
-    # Extract documentation_gaps from nested documentation_gap_analysis if needed
-    if "documentation_gaps" not in result or not result.get("documentation_gaps"):
-        dga = result.get("documentation_gap_analysis", {})
-        if isinstance(dga, dict):
-            for gap_key in ("gaps_identified", "gaps", "critical_gaps"):
-                items = dga.get(gap_key, [])
-                if isinstance(items, list) and items:
-                    result["documentation_gaps"] = items
-                    break
+        status = str(pv.get("status", "")).upper()
+        if status in ("A", "ACTIVE", "VERIFIED"):
+            pv["status"] = "VERIFIED"
+        elif status in ("D", "DEACTIVATED", "INACTIVE"):
+            pv["status"] = "INACTIVE"
 
     return result
 
@@ -1091,7 +982,9 @@ async def _run_synthesis(
             instructions=(
                 "You are a Synthesis Decision Agent. "
                 "Use your synthesis-decision Skill to evaluate the gate-based "
-                "decision rubric and produce a final recommendation."
+                "decision rubric and produce a final recommendation. "
+                "CRITICAL: Your FINAL response MUST be a single valid JSON object "
+                "inside a ```json code fence. No markdown commentary outside the fence."
             ),
             default_options={
                 "cwd": _BACKEND_DIR,
@@ -1144,7 +1037,7 @@ Procedure Codes: {', '.join(request_data['procedure_codes'])}
 --- END REPORTS ---
 
 Evaluate the decision gates in order. Compute the confidence score and level.
-Produce your structured JSON recommendation."""
+Respond with ONLY a ```json code fence containing a single JSON object. No other text."""
 
     async def _do_synthesis():
         async with agent:

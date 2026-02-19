@@ -181,7 +181,9 @@ async def create_clinical_agent() -> ClaudeAgent:
             instructions=(
                 "You are a Clinical Reviewer Agent. "
                 "Use your clinical-review Skill to validate codes, "
-                "extract clinical data, and search literature."
+                "extract clinical data, and search literature. "
+                "CRITICAL: Your FINAL response MUST be a single valid JSON object "
+                "inside a ```json code fence. No markdown commentary outside the fence."
             ),
             default_options={
                 "cwd": _BACKEND_DIR,
@@ -253,7 +255,7 @@ Clinical Notes:
 Execute all validation and extraction steps. Remember to calculate
 extraction_confidence (0-100) for the clinical_extraction object.
 Search for relevant clinical trials for the patient's condition.
-Return your structured JSON findings."""
+Respond with ONLY a ```json code fence containing a single JSON object. No other text."""
 
     async with agent:
         response = await agent.run(prompt)

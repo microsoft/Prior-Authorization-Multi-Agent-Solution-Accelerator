@@ -24,6 +24,11 @@ def pydantic_to_output_format(
     ``model_json_schema()``, which handles nested models, ``$defs``,
     ``$ref``, Optional fields, and defaults automatically.
 
+    The schema is made **strict** by adding ``additionalProperties: false``
+    and explicit ``required`` lists at every object level.  This ensures
+    the LLM cannot invent custom field names or nest data in ad-hoc
+    wrappers — the output must conform exactly to the Pydantic model.
+
     ``exclude_fields`` strips UI-only fields (e.g. ``agent_name``,
     ``checks_performed``) from the schema so the LLM focuses on
     domain-specific fields rather than dumping data into flexible
@@ -67,10 +72,52 @@ def pydantic_to_output_format(
         if not defs:
             schema.pop("$defs", None)
 
+    # --- Make the schema strict ---
+    # Add additionalProperties: false and required lists at every
+    # object level so the LLM cannot invent custom field names.
+    _make_strict(schema)
+
     return {
         "type": "json_schema",
         "schema": schema,
     }
+
+
+def _make_strict(schema: dict) -> None:
+    """Recursively add ``additionalProperties: false`` and ``required``
+    to every object-type node in a JSON Schema so structured output
+    is enforced strictly.
+
+    Also walks into ``$defs``, ``items``, and ``anyOf`` branches.
+    """
+    if not isinstance(schema, dict):
+        return
+
+    # Process $defs first (nested model definitions)
+    for _def in schema.get("$defs", {}).values():
+        _make_strict(_def)
+
+    # If this node is an object with properties, enforce strictness
+    if schema.get("type") == "object" and "properties" in schema:
+        schema["additionalProperties"] = False
+        # Build required list from all property names (if not already set)
+        if "required" not in schema:
+            schema["required"] = list(schema["properties"].keys())
+
+    # Recurse into each property value
+    for prop_schema in schema.get("properties", {}).values():
+        _make_strict(prop_schema)
+
+    # Recurse into items (array elements)
+    items = schema.get("items")
+    if isinstance(items, dict):
+        _make_strict(items)
+
+    # Recurse into anyOf / oneOf branches (used for Optional types)
+    for branch_key in ("anyOf", "oneOf"):
+        for branch in schema.get(branch_key, []):
+            if isinstance(branch, dict):
+                _make_strict(branch)
 
 
 def parse_json_response(response) -> dict:

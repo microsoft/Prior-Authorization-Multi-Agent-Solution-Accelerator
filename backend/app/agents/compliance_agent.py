@@ -112,7 +112,9 @@ async def create_compliance_agent() -> ClaudeAgent:
         return ClaudeAgent(
             instructions=(
                 "You are a Compliance Validation Agent. "
-                "Use your compliance-review Skill to validate documentation completeness."
+                "Use your compliance-review Skill to validate documentation completeness. "
+                "CRITICAL: Your FINAL response MUST be a single valid JSON object "
+                "inside a ```json code fence. No markdown commentary outside the fence."
             ),
             default_options={
                 "cwd": _BACKEND_DIR,
@@ -164,7 +166,7 @@ Clinical Notes:
 
 --- END REQUEST ---
 
-Check each item on your checklist and return your structured JSON assessment."""
+Check each item on your checklist. Respond with ONLY a ```json code fence containing a single JSON object. No other text."""
 
     async with agent:
         response = await agent.run(prompt)

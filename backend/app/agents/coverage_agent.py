@@ -199,7 +199,9 @@ async def create_coverage_agent() -> ClaudeAgent:
             instructions=(
                 "You are a Coverage Assessment Agent. "
                 "Use your coverage-assessment Skill to verify provider credentials, "
-                "search coverage policies, and assess criteria."
+                "search coverage policies, and assess criteria. "
+                "CRITICAL: Your FINAL response MUST be a single valid JSON object "
+                "inside a ```json code fence. No markdown commentary outside the fence."
             ),
             default_options={
                 "cwd": _BACKEND_DIR,
@@ -293,7 +295,7 @@ Clinical Notes:
 Execute all verification and coverage steps. For each coverage criterion,
 provide status (MET/NOT_MET/INSUFFICIENT), confidence (0-100), and
 specific evidence. Also identify documentation gaps with criticality.
-Return your structured JSON assessment."""
+Respond with ONLY a ```json code fence containing a single JSON object. No other text."""
 
     async with agent:
         response = await agent.run(prompt)
