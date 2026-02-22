@@ -1,3 +1,8 @@
+---
+name: clinical-review
+description: Extracts clinical data from prior authorization requests, validates ICD-10 diagnosis codes via MCP, notes CPT/HCPCS procedure codes (format validation handled by orchestrator pre-flight), searches supporting literature via PubMed and clinical trials, and structures a clinical narrative with per-field confidence scoring.
+---
+
 # Clinical Review Skill
 
 ## Description

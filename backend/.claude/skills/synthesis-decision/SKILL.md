@@ -1,3 +1,8 @@
+---
+name: synthesis-decision
+description: Synthesizes outputs from Compliance, Clinical, and Coverage agents into a final APPROVE or PEND recommendation using gate-based evaluation with LENIENT mode policy, weighted confidence scoring, and structured audit trail.
+---
+
 # Synthesis Decision Skill
 
 ## Description

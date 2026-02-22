@@ -1,3 +1,8 @@
+---
+name: compliance-review
+description: Validates documentation completeness for prior authorization requests by checking an 8-item checklist covering patient information, provider credentials, insurance details, medical codes, and clinical notes quality.
+---
+
 # Compliance Review Skill
 
 ## Description

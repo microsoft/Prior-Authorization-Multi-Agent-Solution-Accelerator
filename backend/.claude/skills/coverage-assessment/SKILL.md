@@ -1,3 +1,8 @@
+---
+name: coverage-assessment
+description: Verifies provider credentials via NPI MCP, searches Medicare coverage policies via CMS Coverage MCP, and maps clinical evidence to policy criteria with MET/NOT_MET/INSUFFICIENT assessment, per-criterion confidence scoring, and documentation gap analysis.
+---
+
 # Coverage Assessment Skill
 
 ## Description
