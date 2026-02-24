@@ -23,6 +23,23 @@ confidence scoring, progressive gate evaluation, and structured audit trails.
 > is finalized. Coverage policies reflect Medicare LCDs/NCDs only — commercial
 > and Medicare Advantage plans may differ.
 
+> **Solution Accelerator Notice:** This project is a **solution accelerator** —
+> not a production-ready application. It is designed as a reference architecture
+> and working prototype that customers can use as a starting point to build,
+> customize, and extend their own prior authorization solution based on their
+> specific requirements. Key areas for customization include:
+>
+> - **Data persistence** — Replace the in-memory store with a production database (e.g., Azure Cosmos DB, PostgreSQL)
+> - **Authentication & authorization** — Add identity management and role-based access control
+> - **Payer-specific policies** — Extend coverage agents with commercial and Medicare Advantage plan rules
+> - **EHR/EMR integration** — Connect to existing clinical systems via FHIR or HL7 interfaces
+> - **Compliance & security** — Implement HIPAA-compliant infrastructure, audit logging, and data encryption
+> - **Scalability** — Deploy on Azure Container Apps, Kubernetes, or similar platforms with horizontal scaling
+>
+> Microsoft does not provide production support for this accelerator.
+> Customers are responsible for testing, validation, regulatory compliance,
+> and production deployment within their own environment.
+
 ---
 
 ## What Is Prior Authorization?
