@@ -2061,8 +2061,9 @@ metrics, and request telemetry for every prior authorization review.
    `APPLICATION_INSIGHTS_CONNECTION_STRING`.
 2. The **Microsoft Agent Framework**'s built-in OpenTelemetry support
    (`agent_framework.observability`) is enabled with
-   `enable_instrumentation()`, which auto-instruments agent invocations,
-   MCP tool calls, and model requests.
+   `enable_instrumentation()`. Note: due to a known SDK issue,
+   `ClaudeAgent` is not yet auto-instrumented (see
+   [Known Limitations](#known-limitations--filed-issues) below).
 3. **Custom phase spans** in the orchestrator provide a hierarchical
    trace for every review.
 
@@ -2073,14 +2074,18 @@ Each review produces a trace with the following span structure:
 ```
 prior_auth_review (request_id)
   ├── phase_1_parallel
-  │     ├── compliance_agent      (auto-instrumented by MAF)
-  │     └── clinical_agent        (auto-instrumented by MAF)
+  │     ├── compliance_agent      (pending MAF SDK fix *)
+  │     └── clinical_agent        (pending MAF SDK fix *)
   ├── phase_2_coverage
-  │     └── coverage_agent        (auto-instrumented by MAF)
+  │     └── coverage_agent        (pending MAF SDK fix *)
   ├── phase_3_synthesis
-  │     └── synthesis_agent       (auto-instrumented by MAF)
+  │     └── synthesis_agent       (pending MAF SDK fix *)
   └── phase_4_audit
 ```
+
+\* Agent-level `gen_ai.invoke_agent` spans will appear automatically once
+the MAF SDK fix ships — no code changes required on our side. See
+[Known Limitations](#known-limitations--filed-issues).
 
 ### Custom span attributes
 
@@ -2223,6 +2228,67 @@ Follow the full walkthrough at
 - View traces: select an agent → **Traces** section shows each HTTP call
   and OpenTelemetry spans (tool calls, model interactions, durations)
 - Block/unblock: select an agent → **Update status** → Block/Unblock
+
+### Known Limitations & Filed Issues
+
+Two independent gaps currently prevent full agent-level visibility in the
+Azure Application Insights **Agents (Preview)** view:
+
+#### Gap 1 — MAF `ClaudeAgent` inheritance (Bug filed)
+
+`ClaudeAgent` inherits from `BaseAgent` instead of `Agent`, skipping
+`AgentTelemetryLayer`. As a result, `enable_instrumentation()` does not
+auto-generate `gen_ai.*` spans for ClaudeAgent invocations.
+
+```python
+from agent_framework_claude import ClaudeAgent
+from agent_framework import Agent
+
+issubclass(ClaudeAgent, Agent)  # False ← should be True
+
+# ClaudeAgent MRO (missing AgentTelemetryLayer):
+# ClaudeAgent → BaseAgent → SerializationMixin → Generic → object
+
+# Agent MRO (correct):
+# Agent → AgentTelemetryLayer → AgentMiddlewareLayer → RawAgent → BaseAgent → ...
+```
+
+| Item | Detail |
+|------|--------|
+| **Package** | `agent-framework-claude` v1.0.0b260212 |
+| **Impact** | Agents invisible in App Insights Agents (Preview) view |
+| **Fix** | Change `ClaudeAgent(BaseAgent)` → `ClaudeAgent(Agent)` in SDK |
+| **Our action** | None required — existing `enable_instrumentation()` call will auto-detect the fix |
+| **Status** | Bug filed with MAF team |
+
+#### Gap 2 — Claude CLI/Agent SDK tracing (Feature request filed)
+
+The Anthropic Claude Agent SDK and CLI subprocess have no OpenTelemetry
+**span/trace** support. The CLI supports metrics and log events
+(`claude_code.token.usage`, `claude_code.tool_result`, etc.) but does not
+emit distributed tracing spans. This means even after Gap 1 is fixed,
+there is no visibility into what happens *inside* each agent (individual
+LLM calls, MCP tool executions, token usage per agent).
+
+| Item | Detail |
+|------|--------|
+| **Package** | `claude-agent-sdk` (Python) v0.1.43 |
+| **Impact** | No drill-down into agent internals (LLM calls, tool calls, tokens) |
+| **Fix** | Anthropic to add `OTEL_TRACES_EXPORTER` support with `gen_ai.chat` and `gen_ai.execute_tool` spans |
+| **Our action** | Likely minimal config changes once available (pass env vars to subprocess) |
+| **Status** | Feature request filed with Anthropic ([claude-agent-sdk-python](https://github.com/anthropics/claude-agent-sdk-python/issues)) |
+
+#### What works today
+
+| Telemetry | Status |
+|-----------|--------|
+| Custom orchestrator phase spans (phase_1–4) | ✅ Working |
+| FastAPI request traces | ✅ Working |
+| Application Map, Live Metrics, Performance views | ✅ Working |
+| Heartbeat and platform metrics | ✅ Working |
+| Agent-level `gen_ai.invoke_agent` spans | ❌ Blocked by Gap 1 |
+| Agent internal LLM/tool spans | ❌ Blocked by Gap 2 |
+| Agents (Preview) view in App Insights | ❌ Blocked by Gap 1 |
 
 #### Troubleshooting traces
 
