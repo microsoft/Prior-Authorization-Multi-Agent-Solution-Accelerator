@@ -41,6 +41,9 @@ MCP Servers** to create an intelligent prior authorization review pipeline where
 specialized AI agents work together to validate, assess, and synthesize PA
 decisions with full audit transparency.
 
+![Prior Authorization Review — Application Interface](./docs/images/readme/interface.png)
+*The Prior Authorization Review interface showing the PA request form with patient demographics, diagnosis/procedure codes, clinical notes, and the "Load Sample Case" option for demo use.*
+
 ### Solution architecture
 
 ```

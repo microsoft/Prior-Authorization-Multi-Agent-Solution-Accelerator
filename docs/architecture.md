@@ -95,7 +95,7 @@
 
 ## How It Works
 
-![Prior Authorization Review — Application Interface](../images/interface.png)
+![Prior Authorization Review — Application Interface](./images/readme/interface.png)
 *The Prior Authorization Review interface showing the PA request form, real-time agent progress tracking, review dashboard with agent details, and the human-in-the-loop decision panel.*
 
 1. A clinical reviewer fills in the PA request form in the Next.js frontend,
