@@ -33,10 +33,7 @@ confidence scoring, progressive gate evaluation, and structured audit trails.
 
 ---
 
-<a name="solution-overview"></a>
-<h2><img src="./docs/images/readme/solution-overview.svg" width="48" />
-Solution overview
-</h2>
+## <img src="./docs/images/readme/solution-overview.svg" width="48" /> Solution overview
 
 This solution leverages **Microsoft AI Foundry**, **Microsoft Agent Framework**,
 **Claude Agent SDK**, **Azure Application Insights**, and **Anthropic Healthcare
@@ -298,10 +295,7 @@ The orchestrator coordinates four phases with three specialized agents:
 
 ---
 
-<a name="business-scenario"></a>
-<h2><img src="./docs/images/readme/business-scenario.svg" width="48" />
-Business Scenario
-</h2>
+## <img src="./docs/images/readme/business-scenario.svg" width="48" /> Business Scenario
 
 ### What is prior authorization?
 
@@ -360,10 +354,7 @@ PA request        →     checks completeness  →    evaluates medical    →  
 
 ---
 
-<a name="quick-deploy"></a>
-<h2><img src="./docs/images/readme/quick-deploy.svg" width="48" />
-Quick deploy
-</h2>
+## <img src="./docs/images/readme/quick-deploy.svg" width="48" /> Quick deploy
 
 ### Prerequisites
 
@@ -526,10 +517,7 @@ The `docker-compose.yml` reads your `backend/.env` file and maps credentials:
 
 ---
 
-<a name="supporting-documentation"></a>
-<h2><img src="./docs/images/readme/supporting-documentation.svg" width="48" />
-Supporting documentation
-</h2>
+## <img src="./docs/images/readme/supporting-documentation.svg" width="48" /> Supporting documentation
 
 | Document | Description |
 |----------|-------------|
