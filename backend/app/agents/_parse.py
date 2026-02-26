@@ -141,24 +141,34 @@ def parse_json_response(response) -> dict:
     Returns parsed dict on success, or an error dict on failure.
     """
     # --- Strategy 0: structured output (from output_format option) ---
+    # Check both response.structured_output (legacy) and response.value
+    # (MAF >= 1.0.0b260225 / PR #4137 propagates structured_output via
+    # AgentResponse.value).
+    so = None
     if hasattr(response, "structured_output") and response.structured_output is not None:
         so = response.structured_output
+        logger.info("[parse] Strategy 0: found structured_output attr")
+    elif hasattr(response, "value") and response.value is not None:
+        so = response.value
+        logger.info("[parse] Strategy 0: found response.value (PR #4137)")
+
+    if so is not None:
         if isinstance(so, dict):
-            logger.info("[parse] Strategy 0: structured_output (dict, %d keys)", len(so))
+            logger.info("[parse] Strategy 0: structured output (dict, %d keys)", len(so))
             return so
         if isinstance(so, str):
             try:
                 parsed = json.loads(so)
                 if isinstance(parsed, dict):
-                    logger.info("[parse] Strategy 0: structured_output (parsed string, %d keys)", len(parsed))
+                    logger.info("[parse] Strategy 0: structured output (parsed string, %d keys)", len(parsed))
                     return parsed
             except json.JSONDecodeError:
                 pass
         if hasattr(so, "model_dump"):
             dumped = so.model_dump()
-            logger.info("[parse] Strategy 0: structured_output (Pydantic model, %d keys)", len(dumped))
+            logger.info("[parse] Strategy 0: structured output (Pydantic model, %d keys)", len(dumped))
             return dumped
-        logger.warning("[parse] Strategy 0: structured_output present but unusable (type=%s)", type(so).__name__)
+        logger.warning("[parse] Strategy 0: structured output present but unusable (type=%s)", type(so).__name__)
 
     # --- Diagnostic logging ---
     logger.info(
