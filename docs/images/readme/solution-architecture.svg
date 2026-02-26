@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#505050"/>
+    </marker>
+    <marker id="arrow-white" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#FFFFFF"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="720" rx="12" fill="#F9F9F9"/>
+
+  <!-- ===== FRONTEND LAYER ===== -->
+  <rect x="40" y="20" width="880" height="105" rx="10" fill="#0078D4" filter="url(#shadow)"/>
+  <text x="60" y="48" font-size="13" font-weight="600" fill="#50E6FF">FRONTEND</text>
+  <text x="60" y="70" font-size="16" font-weight="700" fill="white">Next.js + shadcn/ui + Tailwind CSS</text>
+
+  <!-- Frontend components -->
+  <rect x="60" y="82" width="120" height="30" rx="5" fill="#005A9E"/>
+  <text x="120" y="102" font-size="11" fill="white" text-anchor="middle">Upload Form</text>
+
+  <rect x="195" y="82" width="140" height="30" rx="5" fill="#005A9E"/>
+  <text x="265" y="102" font-size="11" fill="white" text-anchor="middle">Progress Tracker</text>
+
+  <rect x="350" y="82" width="155" height="30" rx="5" fill="#005A9E"/>
+  <text x="427" y="102" font-size="11" fill="white" text-anchor="middle">Review Dashboard</text>
+
+  <rect x="520" y="82" width="140" height="30" rx="5" fill="#005A9E"/>
+  <text x="590" y="102" font-size="11" fill="white" text-anchor="middle">Decision Panel</text>
+
+  <rect x="675" y="82" width="140" height="30" rx="5" fill="#005A9E"/>
+  <text x="745" y="102" font-size="11" fill="white" text-anchor="middle">Audit Download</text>
+
+  <!-- Connection: Frontend → Backend -->
+  <line x1="480" y1="125" x2="480" y2="150" stroke="#505050" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="500" y="143" font-size="10" fill="#666">REST + SSE</text>
+
+  <!-- ===== BACKEND LAYER ===== -->
+  <rect x="40" y="155" width="880" height="400" rx="10" fill="#243A5E" filter="url(#shadow)"/>
+  <text x="60" y="183" font-size="13" font-weight="600" fill="#50E6FF">BACKEND</text>
+  <text x="60" y="205" font-size="16" font-weight="700" fill="white">FastAPI + Orchestrator</text>
+
+  <!-- Pre-flight -->
+  <rect x="60" y="220" width="160" height="55" rx="8" fill="#3B5998"/>
+  <text x="140" y="243" font-size="12" font-weight="600" fill="white" text-anchor="middle">Pre-flight</text>
+  <text x="140" y="260" font-size="10" fill="#B0C4DE" text-anchor="middle">CPT/HCPCS Validation</text>
+
+  <!-- Arrow: Pre-flight → Phase 1 -->
+  <line x1="220" y1="247" x2="250" y2="247" stroke="white" stroke-width="1.5" marker-end="url(#arrow-white)"/>
+
+  <!-- Phase 1 box -->
+  <rect x="255" y="220" width="310" height="105" rx="8" fill="#3B5998"/>
+  <text x="275" y="243" font-size="12" font-weight="600" fill="#50E6FF">Phase 1 — PARALLEL</text>
+
+  <!-- Compliance Agent -->
+  <rect x="275" y="255" width="125" height="55" rx="6" fill="#8661C5"/>
+  <text x="337" y="275" font-size="11" font-weight="600" fill="white" text-anchor="middle">Compliance</text>
+  <text x="337" y="290" font-size="11" font-weight="600" fill="white" text-anchor="middle">Agent</text>
+  <text x="337" y="303" font-size="9" fill="#D4C5F0" text-anchor="middle">no tools</text>
+
+  <!-- Clinical Agent -->
+  <rect x="420" y="255" width="125" height="55" rx="6" fill="#8661C5"/>
+  <text x="482" y="275" font-size="11" font-weight="600" fill="white" text-anchor="middle">Clinical Reviewer</text>
+  <text x="482" y="290" font-size="11" font-weight="600" fill="white" text-anchor="middle">Agent</text>
+  <text x="482" y="303" font-size="9" fill="#D4C5F0" text-anchor="middle">3 MCP servers</text>
+
+  <!-- Arrow: Phase 1 → Phase 2 -->
+  <line x1="565" y1="272" x2="595" y2="272" stroke="white" stroke-width="1.5" marker-end="url(#arrow-white)"/>
+
+  <!-- Phase 2 box -->
+  <rect x="600" y="220" width="175" height="105" rx="8" fill="#3B5998"/>
+  <text x="620" y="243" font-size="12" font-weight="600" fill="#50E6FF">Phase 2 — SEQUENTIAL</text>
+
+  <!-- Coverage Agent -->
+  <rect x="620" y="255" width="135" height="55" rx="6" fill="#8661C5"/>
+  <text x="687" y="278" font-size="11" font-weight="600" fill="white" text-anchor="middle">Coverage Agent</text>
+  <text x="687" y="303" font-size="9" fill="#D4C5F0" text-anchor="middle">2 MCP servers</text>
+
+  <!-- Arrow: Phase 2 → Phase 3 -->
+  <line x1="775" y1="272" x2="805" y2="272" stroke="white" stroke-width="1.5" marker-end="url(#arrow-white)"/>
+
+  <!-- Phase 3 box -->
+  <rect x="810" y="220" width="90" height="105" rx="8" fill="#3B5998"/>
+  <text x="855" y="243" font-size="11" font-weight="600" fill="#50E6FF" text-anchor="middle">Phase 3</text>
+  <text x="855" y="263" font-size="10" fill="white" text-anchor="middle">SYNTHESIS</text>
+  <text x="855" y="283" font-size="9" fill="#B0C4DE" text-anchor="middle">Gate 1:</text>
+  <text x="855" y="295" font-size="9" fill="#B0C4DE" text-anchor="middle">Provider</text>
+  <text x="855" y="307" font-size="9" fill="#B0C4DE" text-anchor="middle">Gate 2: Codes</text>
+  <text x="855" y="319" font-size="9" fill="#B0C4DE" text-anchor="middle">Gate 3: Medical</text>
+
+  <!-- Phase 4: Audit Trail -->
+  <rect x="60" y="345" width="250" height="55" rx="8" fill="#3B5998"/>
+  <text x="185" y="368" font-size="12" font-weight="600" fill="#50E6FF" text-anchor="middle">Phase 4 — AUDIT TRAIL</text>
+  <text x="185" y="387" font-size="10" fill="#B0C4DE" text-anchor="middle">Confidence calc · Audit document (Markdown + PDF)</text>
+
+  <!-- Arrow: Phase 3 down to Phase 4 -->
+  <path d="M 855 325 L 855 340 L 310 340 L 310 345" stroke="white" stroke-width="1.5" fill="none" marker-end="url(#arrow-white)"/>
+
+  <!-- Decision & Notification -->
+  <rect x="340" y="345" width="290" height="55" rx="8" fill="#3B5998"/>
+  <text x="485" y="368" font-size="12" font-weight="600" fill="#50E6FF" text-anchor="middle">Decision &amp; Notification</text>
+  <text x="485" y="387" font-size="10" fill="#B0C4DE" text-anchor="middle">Accept/Override · Auth number · PDF letters</text>
+
+  <!-- Arrow: Phase 4 → Decision -->
+  <line x1="310" y1="372" x2="340" y2="372" stroke="white" stroke-width="1.5" marker-end="url(#arrow-white)"/>
+
+  <!-- Microsoft AI Foundry -->
+  <rect x="60" y="420" width="840" height="50" rx="8" fill="#1B2A4A"/>
+  <text x="480" y="445" font-size="13" font-weight="600" fill="white" text-anchor="middle">Microsoft AI Foundry</text>
+  <text x="480" y="462" font-size="10" fill="#50E6FF" text-anchor="middle">Claude model endpoint · API key · Agent registration</text>
+
+  <!-- Foundry logos hint -->
+  <rect x="760" y="430" width="28" height="28" rx="4" fill="#5C2D91"/>
+  <text x="774" y="450" font-size="16" fill="white" text-anchor="middle">⬡</text>
+  <rect x="800" y="430" width="28" height="28" rx="4" fill="#0078D4"/>
+  <text x="814" y="450" font-size="16" fill="white" text-anchor="middle">◆</text>
+  <rect x="840" y="430" width="28" height="28" rx="4" fill="#50E6FF"/>
+  <text x="854" y="448" font-size="14" fill="#243A5E" text-anchor="middle">AI</text>
+
+  <!-- Observability -->
+  <rect x="660" y="345" width="240" height="55" rx="8" fill="#004B1C"/>
+  <text x="780" y="368" font-size="12" font-weight="600" fill="#92E89D" text-anchor="middle">Observability</text>
+  <text x="780" y="387" font-size="10" fill="#B0E0B8" text-anchor="middle">Azure App Insights · OpenTelemetry</text>
+
+  <!-- Backend layer label -->
+  <text x="60" y="540" font-size="10" fill="#243A5E">▼ Streamable HTTP (MCP protocol)</text>
+
+  <!-- Connection: Backend → MCP -->
+  <line x1="480" y1="555" x2="480" y2="580" stroke="#505050" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="500" y="573" font-size="10" fill="#666">MCP Protocol</text>
+
+  <!-- ===== MCP SERVERS LAYER ===== -->
+  <rect x="40" y="585" width="880" height="115" rx="10" fill="#107C10" filter="url(#shadow)"/>
+  <text x="60" y="613" font-size="13" font-weight="600" fill="#92E89D">HEALTHCARE MCP SERVERS</text>
+  <text x="60" y="632" font-size="11" fill="#D4F0D4">from github.com/anthropics/healthcare</text>
+
+  <!-- MCP server boxes -->
+  <rect x="60" y="645" width="140" height="40" rx="6" fill="#0B5D10"/>
+  <text x="130" y="663" font-size="11" font-weight="600" fill="white" text-anchor="middle">NPI Registry</text>
+  <text x="130" y="678" font-size="9" fill="#92E89D" text-anchor="middle">DeepSense</text>
+
+  <rect x="220" y="645" width="140" height="40" rx="6" fill="#0B5D10"/>
+  <text x="290" y="663" font-size="11" font-weight="600" fill="white" text-anchor="middle">ICD-10 Codes</text>
+  <text x="290" y="678" font-size="9" fill="#92E89D" text-anchor="middle">DeepSense</text>
+
+  <rect x="380" y="645" width="140" height="40" rx="6" fill="#0B5D10"/>
+  <text x="450" y="663" font-size="11" font-weight="600" fill="white" text-anchor="middle">CMS Coverage</text>
+  <text x="450" y="678" font-size="9" fill="#92E89D" text-anchor="middle">DeepSense</text>
+
+  <rect x="540" y="645" width="140" height="40" rx="6" fill="#0B5D10"/>
+  <text x="610" y="663" font-size="11" font-weight="600" fill="white" text-anchor="middle">Clinical Trials</text>
+  <text x="610" y="678" font-size="9" fill="#92E89D" text-anchor="middle">DeepSense</text>
+
+  <rect x="700" y="645" width="140" height="40" rx="6" fill="#0B5D10"/>
+  <text x="770" y="663" font-size="11" font-weight="600" fill="white" text-anchor="middle">PubMed</text>
+  <text x="770" y="678" font-size="9" fill="#92E89D" text-anchor="middle">Anthropic</text>
+</svg>
