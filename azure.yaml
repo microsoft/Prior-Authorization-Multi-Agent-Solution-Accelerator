@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: prior-auth-maf
+metadata:
+  template: prior-auth-maf@1.0
+requiredVersions:
+  azd: '>= 1.18.0'
+
+services:
+  backend:
+    project: ./backend
+    host: containerapp
+    language: python
+    docker:
+      path: ./Dockerfile
+      context: .
+
+  frontend:
+    project: ./frontend
+    host: containerapp
+    language: js
+    docker:
+      path: ./Dockerfile
+      context: .
+
+hooks:
+  postdeploy:
+    windows:
+      run: |
+        Write-Host ""
+        Write-Host "===============================================================" -ForegroundColor Yellow
+        Write-Host " POST-DEPLOYMENT COMPLETE" -ForegroundColor Green
+        Write-Host "===============================================================" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host " Before using the application, ensure you have:" -ForegroundColor White
+        Write-Host "  1. Deployed a Claude model in Azure AI Foundry" -ForegroundColor White
+        Write-Host "  2. Set AZURE_FOUNDRY_API_KEY and AZURE_FOUNDRY_ENDPOINT" -ForegroundColor White
+        Write-Host "     in the backend Container App environment variables" -ForegroundColor White
+        Write-Host ""
+        Write-Host "Access your deployed application at:" -ForegroundColor Green
+        Write-Host "   https://$env:frontendUrl" -ForegroundColor Cyan
+        Write-Host ""
+      shell: pwsh
+      interactive: true
+    posix:
+      run: |
+        Green='\033[0;32m'
+        Yellow='\033[1;33m'
+        Blue='\033[0;34m'
+        NC='\033[0m'
+
+        printf "\n"
+        printf "${Yellow}===============================================================\n"
+        printf "${Green} POST-DEPLOYMENT COMPLETE\n"
+        printf "${Yellow}===============================================================${NC}\n\n"
+        printf " Before using the application, ensure you have:\n"
+        printf "  1. Deployed a Claude model in Azure AI Foundry\n"
+        printf "  2. Set AZURE_FOUNDRY_API_KEY and AZURE_FOUNDRY_ENDPOINT\n"
+        printf "     in the backend Container App environment variables\n\n"
+        printf "Access your deployed application at:\n"
+        printf "   ${Blue}https://%s${NC}\n\n" "$frontendUrl"
+      shell: sh
+      interactive: true

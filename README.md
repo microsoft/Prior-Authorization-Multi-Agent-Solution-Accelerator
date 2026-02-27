@@ -154,6 +154,8 @@ The orchestrator coordinates four phases with three specialized agents:
 
 Follow the quick deploy steps on the deployment guide to deploy this solution to your own Azure subscription.
 
+> **Note:** This solution accelerator requires **Azure Developer CLI (azd) version 1.18.0 or higher** for Azure deployment. Please ensure you have the latest version installed before proceeding. [Download azd here](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd).
+
 [Click here to launch the deployment guide](./docs/DeploymentGuide.md)
 
 | [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/amitmukh/prior-auth-maf) | [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/amitmukh/prior-auth-maf) | [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://vscode.dev/github/amitmukh/prior-auth-maf) |
@@ -179,7 +181,7 @@ Pricing varies per region and usage, so it isn't possible to predict exact costs
 | [Azure Container Registry](https://azure.microsoft.com/en-us/pricing/details/container-registry/) | Docker image storage | [Pricing](https://azure.microsoft.com/en-us/pricing/details/container-registry/) |
 | [Azure Application Insights](https://azure.microsoft.com/en-us/pricing/details/monitor/) | Observability and tracing (optional) | [Pricing](https://azure.microsoft.com/en-us/pricing/details/monitor/) |
 
-> ⚠️ **Important:** To avoid unnecessary costs, remember to take down your deployment if it's no longer in use, either by deleting the resource group in the Portal or running `docker compose down` for local deployments.
+> ⚠️ **Important:** To avoid unnecessary costs, remember to take down your deployment if it's no longer in use, either by running `azd down`, deleting the resource group in the Portal, or running `docker compose down` for local deployments.
 
 ---
 

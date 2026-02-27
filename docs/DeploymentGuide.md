@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide walks you through deploying the **Prior Authorization Review — Multi-Agent Solution Accelerator** to Azure. The deployment supports two paths: **Local Development** (Docker Compose) and **Azure Cloud** (Azure Container Apps). Local deployment takes approximately 5 minutes; cloud deployment takes approximately 15–20 minutes including infrastructure provisioning.
+This guide walks you through deploying the **Prior Authorization Review — Multi-Agent Solution Accelerator** to Azure. The deployment supports three paths: **Local Development** (Docker Compose), **Azure Cloud** (Azure Container Apps via CLI), and **Azure Cloud** (Azure Developer CLI / `azd`). Local deployment takes approximately 5 minutes; cloud deployment takes approximately 15–20 minutes including infrastructure provisioning.
 
 > 🆘 **Need Help?** If you encounter any issues during deployment, check our [Troubleshooting Guide](./troubleshooting.md) for solutions to common problems.
 
@@ -35,6 +35,7 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 | Node.js | 18+ | Frontend (local dev) | [nodejs.org](https://nodejs.org/) |
 | Docker Desktop | Latest | Container builds | [docker.com](https://www.docker.com/products/docker-desktop/) |
 | Azure CLI | Latest | Cloud deployment | [Install Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) |
+| Azure Developer CLI (azd) | 1.18.0+ | Cloud deployment (recommended) | [Install azd](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) |
 | Git | Latest | Repository clone | [git-scm.com](https://git-scm.com/) |
 
 ### 1.3 Check Service Availability & Quota
@@ -80,9 +81,10 @@ Select one of the following options to deploy the solution:
 |-------------|----------|-------------|------------|
 | **Docker Compose** | Quick local demo, development | Docker Desktop | ~5 minutes |
 | **Local (no Docker)** | Development with hot reload | Python 3.11+, Node.js 18+ | ~10 minutes |
-| **Azure Container Apps** | Cloud deployment, team access | Azure subscription, Azure CLI | ~15–20 minutes |
+| **Azure Container Apps (azd)** | Cloud deployment (recommended) | Azure subscription, azd 1.18.0+ | ~10 minutes |
+| **Azure Container Apps (CLI)** | Cloud deployment, manual control | Azure subscription, Azure CLI | ~15–20 minutes |
 
-> 💡 **Recommendation:** For fastest deployment, start with **Docker Compose** — just two commands to get running.
+> 💡 **Recommendation:** For cloud deployment, use **`azd up`** — a single command that provisions infrastructure and deploys both containers. For local development, start with **Docker Compose**.
 
 ---
 
@@ -214,7 +216,53 @@ Open `http://localhost:3000` in your browser.
 
 </details>
 
-### Option C: Azure Container Apps (Cloud Deployment)
+### Option C: Azure Container Apps via azd (Recommended for Cloud)
+
+<details>
+<summary><b>Deploy with Azure Developer CLI (azd)</b></summary>
+
+> **Prerequisites:** [Azure Developer CLI (azd) 1.18.0+](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd) and an Azure subscription.
+
+**4C.1 Authenticate with Azure:**
+
+```bash
+azd auth login
+```
+
+**4C.2 Initialize and deploy (single command):**
+
+```bash
+azd up
+```
+
+This will:
+1. Prompt you for an **environment name** (e.g., `prior-auth-dev`)
+2. Prompt you for an **Azure region** (e.g., `eastus`)
+3. Prompt you for **Azure Foundry API key** and **endpoint**
+4. Provision all Azure resources (Container Registry, Container Apps Environment, Log Analytics, Application Insights)
+5. Build and push Docker images to Azure Container Registry
+6. Deploy both backend and frontend Container Apps
+7. Display the frontend URL when complete
+
+**4C.3 Set Azure Foundry credentials (if not set during `azd up`):**
+
+```bash
+azd env set AZURE_FOUNDRY_API_KEY <your-api-key>
+azd env set AZURE_FOUNDRY_ENDPOINT https://<resource>.services.ai.azure.com/anthropic
+azd up
+```
+
+**4C.4 View deployed resources:**
+
+```bash
+azd show
+```
+
+> ⏱️ **Expected Duration:** ~10 minutes for initial provisioning + deployment.
+
+</details>
+
+### Option D: Azure Container Apps via CLI (Manual)
 
 <details>
 <summary><b>Deploy to Azure Container Apps</b></summary>
@@ -380,6 +428,16 @@ If you configured Azure Application Insights:
 ## Step 6: Clean Up (Optional)
 
 ### Remove All Azure Resources
+
+**If deployed with `azd` (recommended):**
+
+```bash
+azd down
+```
+
+This deletes all Azure resources provisioned by `azd up`, including the resource group, Container Registry, Container Apps, Log Analytics, and Application Insights.
+
+**If deployed manually with Azure CLI:**
 
 ```bash
 # Delete the entire resource group and all resources within it
