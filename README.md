@@ -197,165 +197,69 @@ flowchart LR
 
 ## <img src="./docs/images/readme/quick-deploy.svg" width="48" /> Quick deploy
 
-### Prerequisites
+> 📖 **Deployment Guide:** For step-by-step deployment instructions including prerequisites, environment configuration, and Azure Container Apps setup, see the **[Deployment Guide](./docs/DeploymentGuide.md)**.
 
-- **Python 3.11+**
-- **Node.js 18+**
-- **Microsoft AI Foundry account** with access to Claude models
-- Microsoft AI Foundry API key and endpoint
+### Prerequisites & Costs
 
-### 1. Clone the repository
+The following are required to deploy this solution accelerator:
+
+| Prerequisite | Purpose | Required |
+|-------------|---------|----------|
+| [Azure subscription](https://azure.microsoft.com/free/) | Host cloud resources | Yes (cloud deploy) |
+| [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/) account | Claude Sonnet 4.6 model access | Yes |
+| [Python 3.11+](https://www.python.org/downloads/) | Backend runtime | Yes (local dev) |
+| [Node.js 18+](https://nodejs.org/) | Frontend build | Yes (local dev) |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Container builds | Yes (Docker deploy) |
+| [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) | Cloud deployment | Yes (cloud deploy) |
+
+**Estimated Azure Costs:**
+
+| Azure Service | Purpose | Pricing |
+|--------------|---------|---------|
+| [Azure AI Foundry](https://azure.microsoft.com/en-us/pricing/details/ai-foundry/) | Claude Sonnet 4.6 inference | Pay-per-token |
+| [Azure Container Apps](https://azure.microsoft.com/en-us/pricing/details/container-apps/) | Backend + frontend hosting | Consumption-based |
+| [Azure Container Registry](https://azure.microsoft.com/en-us/pricing/details/container-registry/) | Docker image storage | Basic tier |
+| [Azure Application Insights](https://azure.microsoft.com/en-us/pricing/details/monitor/) | Observability (optional) | Pay-per-GB ingested |
+
+> ⚠️ **Quota Required:** Ensure your Azure AI Foundry account has access to **Claude Sonnet 4.6** (`claude-sonnet-4-6`) in your deployment region. See the [Deployment Guide — Quota Check](./docs/DeploymentGuide.md#14-claude-model-quota-check) for verification steps.
+
+### Quick Start (Docker Compose)
+
+The fastest way to get running locally:
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/amitmukh/prior-auth-maf.git
 cd prior-auth-maf
-```
 
-### 2. Backend setup
+# 2. Configure credentials
+cp backend/.env.example backend/.env
+# Edit backend/.env with your Azure AI Foundry API key and endpoint
 
-```bash
-cd backend
-
-# Create and activate virtual environment
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-```
-
-Edit `.env` and set your Microsoft AI Foundry credentials:
-
-```env
-AZURE_FOUNDRY_API_KEY=your-azure-foundry-api-key
-AZURE_FOUNDRY_ENDPOINT=https://your-endpoint.services.ai.azure.com
-CLAUDE_MODEL=claude-sonnet-4-6
-
-# Skills-based approach (default: true)
-USE_SKILLS=true
-
-# Azure Application Insights (optional)
-APPLICATION_INSIGHTS_CONNECTION_STRING=InstrumentationKey=...;IngestionEndpoint=...
-```
-
-The MCP server endpoints are pre-configured with defaults:
-four [DeepSense](https://mcp.deepsense.ai) servers (NPI Registry, ICD-10 Codes,
-CMS Coverage, Clinical Trials) and one
-[Anthropic](https://github.com/anthropics/healthcare) server (PubMed).
-
-### 3. Frontend setup
-
-```bash
-cd frontend
-npm install
-
-# Configure environment (optional — defaults work for local dev)
-cp .env.example .env.local
-```
-
-### 4. Run the application
-
-Start both servers (in separate terminals):
-
-**Backend** (runs on port 8000):
-```bash
-cd backend
-uvicorn app.main:app --reload
-```
-
-**Frontend** (runs on port 3000):
-```bash
-cd frontend
-cp .env.example .env.local   # sets NEXT_PUBLIC_API_BASE=http://localhost:8000/api
-npm run dev
-```
-
-Open `http://localhost:3000` in your browser.
-
-> **Note:** The frontend calls the backend directly (not through a Next.js
-> rewrite proxy) because multi-agent reviews take 3-5 minutes — longer than
-> the dev server proxy's default timeout.
-
-### Docker Compose
-
-```bash
-# Build and start both containers
+# 3. Build and start
 docker compose up --build
 
 # App available at http://localhost:3000
-# Backend health check at http://localhost:8000/health
 ```
 
-The `docker-compose.yml` reads your `backend/.env` file and maps credentials:
-
-| Your `.env` variable | Maps to (container) | Purpose |
-|----------------------|---------------------|---------|
-| `AZURE_FOUNDRY_API_KEY` | `ANTHROPIC_FOUNDRY_API_KEY` | Microsoft AI Foundry auth |
-| `AZURE_FOUNDRY_ENDPOINT` | `ANTHROPIC_FOUNDRY_BASE_URL` | Foundry endpoint URL |
-| (set automatically) | `CLAUDE_CODE_USE_FOUNDRY=true` | Enables Foundry mode |
+> 📖 See the **[Deployment Guide](./docs/DeploymentGuide.md)** for all deployment options including local development setup and Azure Container Apps cloud deployment.
 
 <details>
-  <summary><b>Building without local Docker (Azure Container Registry)</b></summary>
+  <summary><b>Environment variables reference</b></summary>
 
-  ```bash
-  # Create a container registry (one-time)
-  az acr create --name priorauthacr --resource-group <rg> --sku Basic
+  | Variable | Required | Default | Description |
+  |----------|----------|---------|-------------|
+  | `AZURE_FOUNDRY_API_KEY` | Yes | — | Microsoft AI Foundry API key |
+  | `AZURE_FOUNDRY_ENDPOINT` | Yes | — | Foundry endpoint URL |
+  | `CLAUDE_MODEL` | No | `claude-sonnet-4-6` | Claude model identifier |
+  | `USE_SKILLS` | No | `true` | Enable skills-based agent architecture |
+  | `APPLICATION_INSIGHTS_CONNECTION_STRING` | No | — | Azure App Insights connection string |
+  | `MCP_NPI_REGISTRY` | No | `https://mcp.deepsense.ai/npi_registry/mcp` | NPI Registry MCP (DeepSense) |
+  | `MCP_ICD10_CODES` | No | `https://mcp.deepsense.ai/icd10_codes/mcp` | ICD-10 Codes MCP (DeepSense) |
+  | `MCP_CMS_COVERAGE` | No | `https://mcp.deepsense.ai/cms_coverage/mcp` | CMS Coverage MCP (DeepSense) |
+  | `MCP_CLINICAL_TRIALS` | No | `https://mcp.deepsense.ai/clinical_trials/mcp` | Clinical Trials MCP (DeepSense) |
+  | `MCP_PUBMED` | No | `https://pubmed.mcp.claude.com/mcp` | PubMed MCP (Anthropic) |
 
-  # Build images in the cloud
-  az acr build --registry priorauthacr \
-    --image prior-auth-backend:latest \
-    --file backend/Dockerfile ./backend
-
-  az acr build --registry priorauthacr \
-    --image prior-auth-frontend:latest \
-    --file frontend/Dockerfile ./frontend
-  ```
-</details>
-
-<details>
-  <summary><b>Deploying to Azure Container Apps</b></summary>
-
-  ```bash
-  # Create Container Apps environment
-  az containerapp env create \
-    --name prior-auth-env \
-    --resource-group <rg> \
-    --location <region>
-
-  # Deploy backend
-  az containerapp create \
-    --name prior-auth-backend \
-    --resource-group <rg> \
-    --environment prior-auth-env \
-    --image <acr-name>.azurecr.io/prior-auth-backend:latest \
-    --target-port 8000 \
-    --ingress internal \
-    --min-replicas 1 \
-    --env-vars \
-      CLAUDE_CODE_USE_FOUNDRY=true \
-      ANTHROPIC_FOUNDRY_API_KEY=secretref:foundry-key \
-      ANTHROPIC_FOUNDRY_BASE_URL=https://<resource>.services.ai.azure.com/anthropic \
-      FRONTEND_ORIGIN=https://prior-auth-frontend.<region>.azurecontainerapps.io
-
-  # Deploy frontend
-  az containerapp create \
-    --name prior-auth-frontend \
-    --resource-group <rg> \
-    --environment prior-auth-env \
-    --image <acr-name>.azurecr.io/prior-auth-frontend:latest \
-    --target-port 80 \
-    --ingress external \
-    --min-replicas 1
-  ```
-
-  > Update `nginx.conf` to proxy `/api` to the backend Container App's
-  > internal FQDN instead of `http://backend:8000`.
 </details>
 
 ---
@@ -364,6 +268,7 @@ The `docker-compose.yml` reads your `backend/.env` file and maps credentials:
 
 | Document | Description |
 |----------|-------------|
+| [Deployment Guide](./docs/DeploymentGuide.md) | Step-by-step deployment instructions — Docker Compose, local development, Azure Container Apps, prerequisites, environment configuration, troubleshooting |
 | [Architecture](./docs/architecture.md) | Detailed multi-agent architecture, MCP integration, agent details, decision rubric, confidence scoring, audit justification, skills-based architecture |
 | [API Reference](./docs/api-reference.md) | Full REST API documentation — all endpoints, request/response schemas, SSE events, error codes |
 | [Extending the Application](./docs/extending.md) | Step-by-step guides for adding new agents, MCP servers, changing the decision rubric, customizing notification letters |
