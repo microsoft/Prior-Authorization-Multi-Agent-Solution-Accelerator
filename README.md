@@ -182,45 +182,6 @@ Pricing varies per region and usage, so it isn't possible to predict exact costs
 
 > ⚠️ **Important:** To avoid unnecessary costs, remember to take down your deployment if it's no longer in use, either by deleting the resource group in the Portal or running `docker compose down` for local deployments.
 
-### Quick Start (Docker Compose)
-
-The fastest way to get running locally:
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/amitmukh/prior-auth-maf.git
-cd prior-auth-maf
-
-# 2. Configure credentials
-cp backend/.env.example backend/.env
-# Edit backend/.env with your Azure AI Foundry API key and endpoint
-
-# 3. Build and start
-docker compose up --build
-
-# App available at http://localhost:3000
-```
-
-> 📖 See the **[Deployment Guide](./docs/DeploymentGuide.md)** for all deployment options including local development setup and Azure Container Apps cloud deployment.
-
-<details>
-  <summary><b>Environment variables reference</b></summary>
-
-  | Variable | Required | Default | Description |
-  |----------|----------|---------|-------------|
-  | `AZURE_FOUNDRY_API_KEY` | Yes | — | Microsoft AI Foundry API key |
-  | `AZURE_FOUNDRY_ENDPOINT` | Yes | — | Foundry endpoint URL |
-  | `CLAUDE_MODEL` | No | `claude-sonnet-4-6` | Claude model identifier |
-  | `USE_SKILLS` | No | `true` | Enable skills-based agent architecture |
-  | `APPLICATION_INSIGHTS_CONNECTION_STRING` | No | — | Azure App Insights connection string |
-  | `MCP_NPI_REGISTRY` | No | `https://mcp.deepsense.ai/npi_registry/mcp` | NPI Registry MCP (DeepSense) |
-  | `MCP_ICD10_CODES` | No | `https://mcp.deepsense.ai/icd10_codes/mcp` | ICD-10 Codes MCP (DeepSense) |
-  | `MCP_CMS_COVERAGE` | No | `https://mcp.deepsense.ai/cms_coverage/mcp` | CMS Coverage MCP (DeepSense) |
-  | `MCP_CLINICAL_TRIALS` | No | `https://mcp.deepsense.ai/clinical_trials/mcp` | Clinical Trials MCP (DeepSense) |
-  | `MCP_PUBMED` | No | `https://pubmed.mcp.claude.com/mcp` | PubMed MCP (Anthropic) |
-
-</details>
-
 ---
 
 ## <img src="./docs/images/readme/business-scenario.svg" width="48" /> Business Scenario
