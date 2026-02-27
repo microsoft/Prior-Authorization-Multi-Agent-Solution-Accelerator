@@ -49,14 +49,14 @@ decisions with full audit transparency.
 
 ### Solution architecture
 
-|![Solution Architecture](./docs/images/readme/solution-architecture.svg)|
+|![Solution Architecture](./docs/images/readme/solution-architecture.png)|
 |---|
 
 ### Agentic architecture
 
 The orchestrator coordinates four phases with three specialized agents:
 
-|![Agentic Architecture](./docs/images/readme/agentic-architecture.svg)|
+|![Agentic Architecture](./docs/images/readme/agentic-architecture.png)|
 |---|
 
 <br/>
