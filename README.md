@@ -149,16 +149,13 @@ to cover a prescribed medical service, procedure, or medication. The treating
 provider must demonstrate that the requested service is **medically necessary** and
 meets the payer's **coverage policy criteria** before care is delivered.
 
-```
-Provider submits        Payer intake team         Clinical reviewer          Decision
-PA request        →     checks completeness  →    evaluates medical    →    Approve /
-(fax, portal, EDI)      (demographics, codes,     necessity against         Pend /
-                         clinical notes)           coverage policies         Deny
-                                                   (NCDs, LCDs, payer
-                                                    medical policies)
-      ↑                                                    │
-      └────────── Request additional info ←────────────────┘
-                  (avg 2-3 round-trips)
+```mermaid
+flowchart LR
+  A["Provider submits PA request\nFax · Portal · EDI"] --> B["Payer intake\nCompleteness check\nDemographics · Codes · Clinical notes"]
+  B --> C["Clinical review\nMedical necessity assessment\nNCD/LCD + payer policy criteria"]
+  C --> D["Decision\nApprove · Pend · Deny"]
+  C --> E["Additional information requested\nAverage 2–3 round-trips"]
+  E --> A
 ```
 
 ### Industry challenges
