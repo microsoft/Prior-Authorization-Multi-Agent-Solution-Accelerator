@@ -14,6 +14,9 @@
     "azureFoundryEndpoint": {
       "value": "${AZURE_FOUNDRY_ENDPOINT}"
     },
+    "claudeModel": {
+      "value": "${CLAUDE_MODEL}"
+    },
     "appInsightsConnectionString": {
       "value": "${APPLICATIONINSIGHTS_CONNECTION_STRING}"
     },

@@ -61,7 +61,7 @@ export function UploadForm({ onReviewComplete }: UploadFormProps) {
     next.message = event.message;
     next.phases = { ...prev.phases, [event.phase]: event.status };
     next.agents = { ...prev.agents };
-    for (const [agentId, agentState] of Object.entries(event.agents)) {
+    for (const [agentId, agentState] of Object.entries(event.agents ?? {})) {
       next.agents[agentId as AgentId] = agentState;
     }
     return next;

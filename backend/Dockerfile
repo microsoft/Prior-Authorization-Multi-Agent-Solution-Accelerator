@@ -19,6 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app/ ./app/
 
+# Create non-root user — Claude Code CLI refuses to run as root
+RUN useradd --create-home appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Runtime configuration
 ENV PYTHONUNBUFFERED=1
 

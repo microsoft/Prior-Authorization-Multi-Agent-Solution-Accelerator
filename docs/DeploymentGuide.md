@@ -647,6 +647,69 @@ az group delete --name prior-auth-rg --yes --no-wait
 
 ---
 
+## Environment Variables Reference
+
+All environment variables used by the application, organized by purpose.
+
+### Microsoft Foundry (Claude API Routing)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `AZURE_FOUNDRY_API_KEY` | **Yes** | — | Your Microsoft Foundry API key. Obtained from **Microsoft Foundry > Deployments > your Claude model**. Set in `backend/.env` for local development; mapped to `ANTHROPIC_FOUNDRY_API_KEY` at runtime by the SDK patches. |
+| `AZURE_FOUNDRY_ENDPOINT` | **Yes** | — | Microsoft Foundry endpoint URL (e.g., `https://<resource>.services.ai.azure.com/anthropic/`). Mapped to `ANTHROPIC_FOUNDRY_BASE_URL` at runtime. |
+| `CLAUDE_CODE_USE_FOUNDRY` | Auto | `true` | **Anthropic-defined flag** that tells the Claude CLI/SDK to route API calls through Microsoft Foundry instead of directly to `api.anthropic.com`. Set automatically by the backend patches and in Container App config — you do not need to set this manually. |
+| `ANTHROPIC_FOUNDRY_API_KEY` | Auto | — | The actual env var consumed by the Claude CLI for Foundry authentication. Auto-mapped from `AZURE_FOUNDRY_API_KEY` by the backend patches. In Azure Container Apps, this is set directly as a secret reference. |
+| `ANTHROPIC_FOUNDRY_BASE_URL` | Auto | — | The actual env var consumed by the Claude CLI for the Foundry endpoint. Auto-mapped from `AZURE_FOUNDRY_ENDPOINT` by the backend patches. |
+
+### Model Configuration
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `CLAUDE_MODEL` | No | `claude-sonnet-4-6` | The Claude model to use for agent reasoning. Must match a model deployed in your Microsoft Foundry resource. Common values: `claude-opus-4-5`, `claude-sonnet-4-6`. |
+| `USE_SKILLS` | No | `true` | When `true`, agents use `SKILL.md` files via MAF native skill discovery. When `false`, agents use inline system prompt instructions. |
+
+### Application
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `FRONTEND_ORIGIN` | No | `http://localhost:5173` | CORS origin for the frontend. Set to the frontend's deployed URL (e.g., `https://ca-frontend-xxx.azurecontainerapps.io`) in production. |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | No | — | Azure Application Insights connection string for observability. Auto-provisioned by Bicep when deploying with `azd up`. |
+
+### MCP Servers (Optional)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MCP_NPI_REGISTRY` | No | `https://mcp.deepsense.ai/npi_registry/mcp` | NPI Registry — provider verification (CMS NPPES) |
+| `MCP_ICD10_CODES` | No | `https://mcp.deepsense.ai/icd10_codes/mcp` | ICD-10 diagnosis code validation (2026 code set) |
+| `MCP_CMS_COVERAGE` | No | `https://mcp.deepsense.ai/cms_coverage/mcp` | CMS Coverage — Medicare LCD/NCD policy lookup |
+| `MCP_PUBMED` | No | `https://pubmed.mcp.claude.com/mcp` | PubMed biomedical literature search |
+| `MCP_CLINICAL_TRIALS` | No | `https://mcp.deepsense.ai/clinical_trials/mcp` | ClinicalTrials.gov search |
+
+> **Note:** All DeepSense MCP servers require the header `User-Agent: claude-code/1.0`, which is configured automatically in `backend/app/tools/mcp_config.py`.
+
+### How Variables Flow in Azure Deployment
+
+```
+backend/.env (local)          azd environment (.azure/<env>/.env)
+─────────────────────         ─────────────────────────────────────
+AZURE_FOUNDRY_API_KEY    →    AZURE_FOUNDRY_API_KEY
+AZURE_FOUNDRY_ENDPOINT   →    AZURE_FOUNDRY_ENDPOINT
+CLAUDE_MODEL             →    CLAUDE_MODEL
+                               ↓ (main.parameters.json mapping)
+                         infra/main.bicep parameters
+                               ↓ (Container App env vars)
+                         ┌──────────────────────────────────────┐
+                         │ CLAUDE_CODE_USE_FOUNDRY = true       │
+                         │ ANTHROPIC_FOUNDRY_API_KEY (secret)   │
+                         │ ANTHROPIC_FOUNDRY_BASE_URL           │
+                         │ CLAUDE_MODEL                         │
+                         │ APPLICATIONINSIGHTS_CONNECTION_STRING│
+                         │ FRONTEND_ORIGIN                      │
+                         └──────────────────────────────────────┘
+```
+
+---
+
 ## Troubleshooting
 
 ### Common Deployment Issues

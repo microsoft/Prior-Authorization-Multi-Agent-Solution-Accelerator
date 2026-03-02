@@ -196,7 +196,15 @@ function CollapsibleSection({
   );
 }
 
-function ComplianceTab({ data }: { data: ComplianceResult }) {
+function ComplianceTab({ data: raw }: { data: ComplianceResult }) {
+  // Normalize potentially-null arrays from API response
+  const data = {
+    ...raw,
+    checks_performed: raw.checks_performed ?? [],
+    checklist: raw.checklist ?? [],
+    missing_items: raw.missing_items ?? [],
+    additional_info_requests: raw.additional_info_requests ?? [],
+  };
   return (
     <div className="space-y-4">
       {/* Checks summary — always visible */}
@@ -276,7 +284,23 @@ function ComplianceTab({ data }: { data: ComplianceResult }) {
   );
 }
 
-function ClinicalTab({ data }: { data: ClinicalResult }) {
+function ClinicalTab({ data: raw }: { data: ClinicalResult }) {
+  // Normalize potentially-null arrays from API response
+  const data = {
+    ...raw,
+    checks_performed: raw.checks_performed ?? [],
+    diagnosis_validation: raw.diagnosis_validation ?? [],
+    literature_support: raw.literature_support ?? [],
+    clinical_trials: raw.clinical_trials ?? [],
+    tool_results: raw.tool_results ?? [],
+    clinical_extraction: raw.clinical_extraction ? {
+      ...raw.clinical_extraction,
+      prior_treatments: raw.clinical_extraction.prior_treatments ?? [],
+      severity_indicators: raw.clinical_extraction.severity_indicators ?? [],
+      functional_limitations: raw.clinical_extraction.functional_limitations ?? [],
+      diagnostic_findings: raw.clinical_extraction.diagnostic_findings ?? [],
+    } : undefined,
+  };
   return (
     <div className="space-y-4">
       {/* Checks summary — always visible */}
@@ -528,7 +552,20 @@ function ClinicalTab({ data }: { data: ClinicalResult }) {
   );
 }
 
-function CoverageTab({ data }: { data: CoverageResult }) {
+function CoverageTab({ data: raw }: { data: CoverageResult }) {
+  // Normalize potentially-null arrays from API response
+  const data = {
+    ...raw,
+    checks_performed: raw.checks_performed ?? [],
+    coverage_policies: raw.coverage_policies ?? [],
+    criteria_assessment: raw.criteria_assessment ?? [],
+    coverage_criteria_met: raw.coverage_criteria_met ?? [],
+    coverage_criteria_not_met: raw.coverage_criteria_not_met ?? [],
+    policy_references: raw.policy_references ?? [],
+    coverage_limitations: raw.coverage_limitations ?? [],
+    documentation_gaps: raw.documentation_gaps ?? [],
+    tool_results: raw.tool_results ?? [],
+  };
   return (
     <div className="space-y-4">
       {/* Checks summary — always visible */}

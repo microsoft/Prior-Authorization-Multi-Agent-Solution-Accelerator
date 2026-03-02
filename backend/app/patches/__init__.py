@@ -105,8 +105,17 @@ def _patch_windows_event_loop() -> None:
 
 def _patch_api_credentials() -> None:
     """Override local-proxy API credentials with real ones from .env."""
-    api_key = os.environ.get("AZURE_FOUNDRY_API_KEY", "")
-    base_url = os.environ.get("AZURE_FOUNDRY_ENDPOINT", "")
+    # Support both naming conventions:
+    #   Local/.env:       AZURE_FOUNDRY_API_KEY / AZURE_FOUNDRY_ENDPOINT
+    #   Container Apps:   ANTHROPIC_FOUNDRY_API_KEY / ANTHROPIC_FOUNDRY_BASE_URL
+    api_key = (
+        os.environ.get("AZURE_FOUNDRY_API_KEY", "")
+        or os.environ.get("ANTHROPIC_FOUNDRY_API_KEY", "")
+    )
+    base_url = (
+        os.environ.get("AZURE_FOUNDRY_ENDPOINT", "")
+        or os.environ.get("ANTHROPIC_FOUNDRY_BASE_URL", "")
+    )
     model = os.environ.get("CLAUDE_MODEL", "")
 
     if not api_key:

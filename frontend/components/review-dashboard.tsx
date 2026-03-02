@@ -31,7 +31,22 @@ interface ReviewDashboardProps {
   review: ReviewResponse;
 }
 
-export function ReviewDashboard({ review }: ReviewDashboardProps) {
+export function ReviewDashboard({ review: rawReview }: ReviewDashboardProps) {
+  // Normalize potentially-null arrays from API response
+  const review = {
+    ...rawReview,
+    tool_results: rawReview.tool_results ?? [],
+    coverage_criteria_met: rawReview.coverage_criteria_met ?? [],
+    coverage_criteria_not_met: rawReview.coverage_criteria_not_met ?? [],
+    missing_documentation: rawReview.missing_documentation ?? [],
+    documentation_gaps: rawReview.documentation_gaps ?? [],
+    policy_references: rawReview.policy_references ?? [],
+    audit_trail: rawReview.audit_trail ? {
+      ...rawReview.audit_trail,
+      data_sources: rawReview.audit_trail.data_sources ?? [],
+    } : undefined,
+  };
+
   // Track the audit PDF — updated when a decision (especially an override) returns a new one
   const [auditPdf, setAuditPdf] = useState<string | undefined>(review.audit_justification_pdf);
 
@@ -103,7 +118,7 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
       </Card>
 
       {/* Tool checks */}
-      {review.tool_results.length > 0 && (
+      {(review.tool_results?.length ?? 0) > 0 && (
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
@@ -113,7 +128,7 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-2">
-              {review.tool_results.map((t, i) => (
+              {(review.tool_results ?? []).map((t, i) => (
                 <Badge
                   key={i}
                   className="whitespace-normal text-left justify-start max-w-full"
@@ -134,8 +149,8 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
       )}
 
       {/* Coverage criteria */}
-      {(review.coverage_criteria_met.length > 0 ||
-        review.coverage_criteria_not_met.length > 0) && (
+      {((review.coverage_criteria_met?.length ?? 0) > 0 ||
+        (review.coverage_criteria_not_met?.length ?? 0) > 0) && (
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
@@ -144,27 +159,27 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {review.coverage_criteria_met.length > 0 && (
+            {(review.coverage_criteria_met?.length ?? 0) > 0 && (
               <div>
                 <p className="text-sm font-medium text-success-dark mb-1 flex items-center gap-1.5">
                   <CheckCircle2 className="h-4 w-4" />
                   Criteria Met
                 </p>
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-0.5">
-                  {review.coverage_criteria_met.map((c, i) => (
+                  {(review.coverage_criteria_met ?? []).map((c, i) => (
                     <li key={i}>{c}</li>
                   ))}
                 </ul>
               </div>
             )}
-            {review.coverage_criteria_not_met.length > 0 && (
+            {(review.coverage_criteria_not_met?.length ?? 0) > 0 && (
               <div>
                 <p className="text-sm font-medium text-destructive mb-1 flex items-center gap-1.5">
                   <ShieldAlert className="h-4 w-4" />
                   Criteria Not Met
                 </p>
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-0.5">
-                  {review.coverage_criteria_not_met.map((c, i) => (
+                  {(review.coverage_criteria_not_met ?? []).map((c, i) => (
                     <li key={i}>{c}</li>
                   ))}
                 </ul>
@@ -175,13 +190,13 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
       )}
 
       {/* Missing documentation */}
-      {review.missing_documentation.length > 0 && (
+      {(review.missing_documentation?.length ?? 0) > 0 && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Missing Documentation</AlertTitle>
           <AlertDescription>
             <ul className="list-disc list-inside mt-1 space-y-0.5">
-              {review.missing_documentation.map((doc, i) => (
+              {(review.missing_documentation ?? []).map((doc, i) => (
                 <li key={i}>{doc}</li>
               ))}
             </ul>
@@ -190,7 +205,7 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
       )}
 
       {/* Documentation gaps */}
-      {review.documentation_gaps.length > 0 && (
+      {(review.documentation_gaps?.length ?? 0) > 0 && (
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
@@ -199,7 +214,7 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {review.documentation_gaps.map((gap, i) => (
+            {(review.documentation_gaps ?? []).map((gap, i) => (
               <div key={i} className="flex items-start gap-2 text-sm">
                 <Badge
                   variant={gap.critical ? "destructive" : "warning"}
@@ -218,7 +233,7 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
       )}
 
       {/* Policy references */}
-      {review.policy_references.length > 0 && (
+      {(review.policy_references?.length ?? 0) > 0 && (
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
@@ -228,7 +243,7 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
           </CardHeader>
           <CardContent>
             <ul className="list-disc list-inside text-sm text-muted-foreground space-y-0.5">
-              {review.policy_references.map((ref, i) => (
+              {(review.policy_references ?? []).map((ref, i) => (
                 <li key={i}>{ref}</li>
               ))}
             </ul>
@@ -304,11 +319,11 @@ export function ReviewDashboard({ review }: ReviewDashboardProps) {
                   className="w-32 ml-5"
                 />
               </div>
-              {review.audit_trail.data_sources.length > 0 && (
+              {(review.audit_trail.data_sources?.length ?? 0) > 0 && (
                 <div className="col-span-full">
                   <p className="font-medium mb-1 flex items-center gap-1.5"><Database className="h-3.5 w-3.5 text-muted-foreground" />Data Sources</p>
                   <div className="flex flex-wrap gap-1 ml-5">
-                    {review.audit_trail.data_sources.map((src, i) => (
+                    {(review.audit_trail.data_sources ?? []).map((src, i) => (
                       <Badge key={i} variant="outline" className="text-xs">
                         {src}
                       </Badge>
