@@ -246,7 +246,7 @@ By using the *Prior Authorization Review — Multi-Agent Solution Accelerator*, 
 |----------|-------------|
 | [Deployment Guide](./docs/DeploymentGuide.md) | Step-by-step deployment instructions — Docker Compose, local development, Azure Container Apps, prerequisites, environment configuration, troubleshooting |
 | [Architecture](./docs/architecture.md) | Detailed multi-agent architecture, MCP integration, agent details, decision rubric, confidence scoring, audit justification, skills-based architecture |
-| [API Reference](./docs/api-reference.md) | Full REST API documentation — all endpoints, request/response schemas, SSE events, error codes |
+| [API Reference](./docs/api-reference.md) | Full REST API documentation — review, decision, per-agent endpoints, request/response schemas, SSE events, error codes |
 | [Extending the Application](./docs/extending.md) | Step-by-step guides for adding new agents, MCP servers, changing the decision rubric, customizing notification letters |
 | [Technical Notes](./docs/technical-notes.md) | Windows SDK patches, MCP header injection, structured output, prompt caching, observability, Foundry agent registration, known limitations |
 | [Troubleshooting](./docs/troubleshooting.md) | Common issues and fixes — CLI failures, empty responses, connection errors, truncated responses, Foundry trace issues |
