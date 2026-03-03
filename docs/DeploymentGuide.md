@@ -186,16 +186,17 @@ APPLICATION_INSIGHTS_CONNECTION_STRING=InstrumentationKey=...;IngestionEndpoint=
 
 > **Where to find these values:**
 >
-> 1. Go to [ai.azure.com](https://ai.azure.com/) → your project → **Model catalog** → your deployed Claude model
-> 2. The deployment details page shows:
->    - **Base URL** — Copy the full URL including the `/anthropic` suffix. This is your `AZURE_FOUNDRY_ENDPOINT`.
->    - **API Key** — This is your `AZURE_FOUNDRY_API_KEY`.
->    - **Deployment name** (e.g., `claude-sonnet-4-6`) — This is your `CLAUDE_MODEL`.
+> 1. Go to [ai.azure.com](https://ai.azure.com/) → select your project
+> 2. On the **Home** tab you will see three fields at the top:
+>    - **Project API key** — This is your `AZURE_FOUNDRY_API_KEY`.
+>    - **Project endpoint** (e.g., `https://<resource-name>.services.ai.azure.com`) — Append `/anthropic` to get your `AZURE_FOUNDRY_ENDPOINT`.
+>    - **Azure OpenAI endpoint** — Not used for Claude models.
+> 3. The **deployment name** of your Claude model (e.g., `claude-sonnet-4-6`) is your `CLAUDE_MODEL`. Find it under **Build** → **Deployments**.
 >
 > ```
-> baseURL        = "https://<resource-name>.services.ai.azure.com/anthropic"   → AZURE_FOUNDRY_ENDPOINT
-> API Key        = "F8RHd..."                                                  → AZURE_FOUNDRY_API_KEY
-> deploymentName = "claude-sonnet-4-6"                                         → CLAUDE_MODEL
+> Project endpoint = "https://<resource-name>.services.ai.azure.com"   + "/anthropic"  →  AZURE_FOUNDRY_ENDPOINT
+> Project API key  = "F8RHd..."                                                        →  AZURE_FOUNDRY_API_KEY
+> Deployment name  = "claude-sonnet-4-6"                                                →  CLAUDE_MODEL
 > ```
 
 ### 3.2 Advanced Configuration (Optional)
@@ -308,7 +309,7 @@ Look for the `AI_FOUNDRY_PORTAL_URL` output and open it in your browser, or go t
 
 **Step 3: Configure the Backend with Claude Credentials**
 
-Set the API key, base URL, and deployment name in your azd environment. These values come from the deployment details page in the Foundry portal (see [Step 3.1](#31-set-environment-variables) for where to find them):
+Set the API key, base URL, and deployment name in your azd environment. These values come from the **Home** tab of the Foundry portal (see [Step 3.1](#31-set-environment-variables) for where to find them):
 
 ```bash
 azd env set AZURE_FOUNDRY_API_KEY <your-api-key>
@@ -316,7 +317,7 @@ azd env set AZURE_FOUNDRY_ENDPOINT https://<resource-name>.services.ai.azure.com
 azd env set CLAUDE_MODEL claude-sonnet-4-6    # Must match your deployment name
 ```
 
-> **Important:** The endpoint URL must include the `/anthropic` suffix. Copy the **Base URL** exactly as shown in the Foundry portal deployment details.
+> **Important:** The endpoint URL must include the `/anthropic` suffix. Copy the **Project endpoint** from the Foundry Home tab and append `/anthropic`.
 
 Then redeploy to apply the credentials:
 
@@ -844,8 +845,8 @@ All environment variables used by the application, organized by purpose.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AZURE_FOUNDRY_API_KEY` | **Yes** | — | Your Microsoft Foundry API key. Obtained from **Foundry portal > your project > Model catalog > your Claude deployment > API Key**. Set in `backend/.env` for local development; mapped to `ANTHROPIC_FOUNDRY_API_KEY` at runtime by the SDK patches. |
-| `AZURE_FOUNDRY_ENDPOINT` | **Yes** | — | Microsoft Foundry base URL — must include the `/anthropic` suffix (e.g., `https://<resource-name>.services.ai.azure.com/anthropic`). This is the **Base URL** shown on the deployment details page in the Foundry portal. Mapped to `ANTHROPIC_FOUNDRY_BASE_URL` at runtime. |
+| `AZURE_FOUNDRY_API_KEY` | **Yes** | — | Your Microsoft Foundry **Project API key**. Found on the Foundry portal **Home** tab (top of page). Set in `backend/.env` for local development; mapped to `ANTHROPIC_FOUNDRY_API_KEY` at runtime by the SDK patches. |
+| `AZURE_FOUNDRY_ENDPOINT` | **Yes** | — | Your **Project endpoint** from the Foundry portal Home tab with `/anthropic` appended (e.g., `https://<resource-name>.services.ai.azure.com/anthropic`). Mapped to `ANTHROPIC_FOUNDRY_BASE_URL` at runtime. |
 | `CLAUDE_CODE_USE_FOUNDRY` | Auto | `true` | **Anthropic-defined flag** that tells the Claude CLI/SDK to route API calls through Microsoft Foundry instead of directly to `api.anthropic.com`. Set automatically by the backend patches and in Container App config — you do not need to set this manually. |
 | `ANTHROPIC_FOUNDRY_API_KEY` | Auto | — | The actual env var consumed by the Claude CLI for Foundry authentication. Auto-mapped from `AZURE_FOUNDRY_API_KEY` by the backend patches. In Azure Container Apps, this is set directly as a secret reference. |
 | `ANTHROPIC_FOUNDRY_BASE_URL` | Auto | — | The actual env var consumed by the Claude CLI for the Foundry endpoint. Auto-mapped from `AZURE_FOUNDRY_ENDPOINT` by the backend patches. |
@@ -854,7 +855,7 @@ All environment variables used by the application, organized by purpose.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `CLAUDE_MODEL` | No | `claude-sonnet-4-6` | The Claude **deployment name** as shown in the Foundry portal deployment details. Must exactly match the name of a model deployed in your Microsoft Foundry resource. Common values: `claude-opus-4-5`, `claude-sonnet-4-6`. |
+| `CLAUDE_MODEL` | No | `claude-sonnet-4-6` | The Claude **deployment name** as shown in the Foundry portal under **Build** → **Deployments**. Must exactly match the name of a model deployed in your Microsoft Foundry resource. Common values: `claude-opus-4-5`, `claude-sonnet-4-6`. |
 | `USE_SKILLS` | No | `true` | When `true`, agents use `SKILL.md` files via MAF native skill discovery. When `false`, agents use inline system prompt instructions. |
 
 ### Application
