@@ -88,7 +88,13 @@ Select one of the following options to set up your deployment environment:
 1. Click the badge above (may take several minutes to load)
 2. Accept default values on the Codespaces creation page
 3. Wait for the environment to initialize (includes all deployment tools)
-4. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+4. **Authenticate with Azure** (both CLI tools are required):
+   ```bash
+   azd auth login --use-device-code
+   az login --use-device-code
+   ```
+   > **Note:** Codespaces runs on GitHub-hosted VMs. If your organization enforces Conditional Access policies (e.g., IP/location restrictions), your corporate Azure account may be blocked. In that case, use a personal or non-corp Azure account for deployment.
+5. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
 
 </details>
 
@@ -240,14 +246,26 @@ The MCP server endpoints are pre-configured with defaults. Override them only if
 
 ### 4.1 Authenticate with Azure
 
+Both `azd` and `az` CLI must be authenticated. The pre-flight checks verify both.
+
 ```bash
 azd auth login
+az login
+```
+
+**For Codespaces / VS Code Web** (device code flow required):
+```bash
+azd auth login --use-device-code
+az login --use-device-code
 ```
 
 **For specific tenants:**
 ```bash
 azd auth login --tenant-id <tenant-id>
+az login --tenant <tenant-id>
 ```
+
+> **Conditional Access note:** If your organization enforces Conditional Access policies, `azd auth login` from Codespaces may fail with Error 53003. Use a non-corporate Azure account or deploy from your local machine instead.
 
 **Finding Tenant ID:**
 1. Open the [Azure Portal](https://portal.azure.com/)
