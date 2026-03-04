@@ -130,7 +130,7 @@ module backend './modules/container-app.bicep' = {
       { name: 'FRONTEND_ORIGIN', value: 'https://${abbrs.appContainerApps}frontend-${resourceToken}.${containerAppsEnv.outputs.defaultDomain}' }
     ]
     secrets: [
-      { name: 'foundry-api-key', value: azureFoundryApiKey }
+      { name: 'foundry-api-key', value: azureFoundryApiKey != '' ? azureFoundryApiKey : 'placeholder-configure-after-model-deployment' }
     ]
     healthCheckPath: '/health'
   }
