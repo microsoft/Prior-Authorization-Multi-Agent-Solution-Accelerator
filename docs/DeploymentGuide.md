@@ -48,13 +48,9 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 
 🔍 **Check Availability:** See [Use Foundry Models Claude](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-claude) for the latest region availability.
 
-### 1.3 Claude Model Access (Pre-check)
+### 1.3 Claude Model Availability
 
-💡 **OPTIONAL:** Before deployment, verify that Claude models are available in your target region.
-
-Claude models on Microsoft Foundry are currently available in **East US 2** and **Sweden Central**. Check the latest region availability at [Use Foundry Models Claude](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-claude).
-
-> **Note:** You do **not** need to create a Foundry project or deploy the Claude model before running `azd up`. The AI Foundry Hub and Project are provisioned automatically during deployment. You will deploy the Claude model and configure credentials in Step 4.3 after `azd up` completes.
+> **Note:** You do **not** need to create a Foundry project or deploy the Claude model before running `azd up`. Everything is provisioned automatically. You will deploy the Claude model in [Step 4.3](#43-deploy-claude-model--configure-credentials) after infrastructure provisioning completes.
 
 ---
 
@@ -116,11 +112,12 @@ Select one of the following options to set up your deployment environment:
 5. When prompted in the VS Code Web terminal, choose one of the available options
 6. **Authenticate with Azure** (VS Code Web requires device code authentication):
    ```shell
+   azd auth login --use-device-code
    az login --use-device-code
    ```
-   > **Note:** In VS Code Web environment, the regular `az login` command may fail. Use the `--use-device-code` flag to authenticate via device code flow. Follow the prompts in the terminal to complete authentication.
+   > **Note:** In VS Code Web environment, the regular `az login` command may fail. Use the `--use-device-code` flag to authenticate via device code flow.
 
-7. Proceed to [Step 4: Deploy the Solution](#step-4-deploy-the-solution) (skip Step 3 — credentials are configured after `azd up` provisions the Foundry resources)
+7. Proceed to [Step 4.2: Start Deployment](#42-start-deployment) (skip Steps 3 and 4.1 — auth is done above, credentials are configured after `azd up`)
 
 </details>
 
@@ -272,10 +269,10 @@ azd up
 > **💡 Automated Pre-Flight Checks:** Before provisioning any Azure resources, `azd up` automatically runs a 7-step verification that checks Azure CLI authentication, subscription permissions, required CLI extensions, project files, soft-deleted Key Vault conflicts, resource provider registration, and resource quotas. If any issues are found, you'll see clear guidance on how to fix them — saving you from a failed deployment after a long wait.
 
 **During deployment, you'll be prompted for:**
-1. **Environment name** (e.g., `prior-auth-dev`)
+1. **Environment name** (e.g., `prior-auth-dev`) — a label for your deployment, used in the resource group name
 2. **Azure subscription** selection
 3. **Azure region** — select **East US 2** (`eastus2`) or **Sweden Central** (`swedencentral`)
-4. **Azure Foundry API key** and **endpoint** — leave blank for now (you'll configure these after deploying the Claude model in Step 4.3)
+4. **Azure Foundry API key** and **endpoint** — press **Enter** to skip (leave blank). These are configured in Step 4.3 after the Foundry resources are provisioned.
 
 **What gets deployed:**
 - **AI Foundry Hub + Project** (for Claude model deployment)
@@ -318,7 +315,14 @@ Look for the `AI_FOUNDRY_PORTAL_URL` output and open it in your browser, or go t
 
 **Step 3: Configure the Backend with Claude Credentials**
 
-Set the API key, base URL, and deployment name in your azd environment. These values come from the **Home** tab of the Foundry portal (see [Step 3.1](#31-set-environment-variables) for where to find them):
+Set the API key, base URL, and deployment name in your azd environment. These values come from the **Home** tab of the Foundry portal:
+
+> **Where to find these values:**
+> 1. Go to [ai.azure.com](https://ai.azure.com/) → select your newly provisioned project
+> 2. On the **Home** tab you will see:
+>    - **Project API key** → `AZURE_FOUNDRY_API_KEY`
+>    - **Project endpoint** (e.g., `https://<resource-name>.services.ai.azure.com`) — append `/anthropic` → `AZURE_FOUNDRY_ENDPOINT`
+> 3. The **deployment name** of your Claude model (e.g., `claude-sonnet-4-6`) → `CLAUDE_MODEL`. Find it under **Build** tab → **Deployments**.
 
 ```bash
 azd env set AZURE_FOUNDRY_API_KEY <your-api-key>
@@ -352,11 +356,11 @@ The frontend URL will be displayed in the deployment output. You can also find i
 
 ### 5.1 Verify Application Health
 
-| **Check** | **Command / URL** | **Expected Result** |
-|-----------|-------------------|---------------------|
-| Frontend loads | Open application URL | PA request form displays |
-| Backend health | `GET /health` | `{"status": "healthy"}` |
-| MCP connectivity | Submit a sample case | Agent progress events stream |
+| **Check** | **How** | **Expected Result** |
+|-----------|---------|---------------------|
+| Frontend loads | Open the frontend URL from `azd show` output (look for `frontendUrl`) | PA request form displays |
+| Backend health | Open `https://<backend-url>/health` (look for `backendUrl` in `azd show` output) | `{"status": "healthy"}` |
+| MCP connectivity | Submit a sample case via the frontend | Agent progress events stream |
 
 ### 5.2 Test the Application
 
