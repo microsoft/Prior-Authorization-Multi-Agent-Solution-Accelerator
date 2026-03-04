@@ -90,6 +90,11 @@ Select one of the following options to set up your deployment environment:
 3. Wait for the environment to initialize — the setup script automatically installs Python and Node.js dependencies (~2–3 minutes). You'll see `Setup complete! 🎉` in the terminal when it's done.
 4. Proceed to [Step 4: Deploy the Solution](#step-4-deploy-the-solution) (skip Step 3 — credentials are configured after `azd up` provisions the Foundry resources)
 
+</details>
+
+<details>
+<summary><b>Option B: VS Code Dev Containers</b></summary>
+
 [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/amitmukh/prior-auth-maf)
 
 **Prerequisites:**
