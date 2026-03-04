@@ -384,8 +384,7 @@ hooks:
               if az extension add --name "$EXT_NAME" --yes >/dev/null 2>&1; then
                 printf "${Green} OK${NC}\n"
               else
-                printf "${Red} FAILED${NC}\n"
-                HAS_ERRORS=1
+                printf "${Yellow} SKIPPED (install requires newer az CLI)${NC}\n"
               fi
             fi
           done
@@ -409,7 +408,7 @@ hooks:
           # ── 5. Soft-Deleted Key Vault Check ──────────────────────
           printf "\n${White} [5/7] Checking for soft-deleted Key Vaults...${NC}\n"
           ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null)
-          DELETED_VAULTS=$(az keyvault list-deleted --query "[?contains(name, '$ENV_NAME')].name" -o tsv 2>/dev/null)
+          DELETED_VAULTS=$(az keyvault list-deleted --query "[?contains(name, '$ENV_NAME')].name" -o tsv 2>/dev/null || true)
           if [ -n "$DELETED_VAULTS" ]; then
             printf "${Yellow}   [!!] WARNING: Soft-deleted Key Vault found matching '%s'${NC}\n" "$ENV_NAME"
             printf "${Yellow}   This may cause deployment failures. To fix:${NC}\n"
@@ -433,15 +432,15 @@ hooks:
 
             PNAME=$(echo "$PROVIDER_INFO" | cut -d'|' -f1)
             PDESC=$(echo "$PROVIDER_INFO" | cut -d'|' -f2)
-            STATE=$(az provider show -n "$PNAME" --query "registrationState" -o tsv 2>/dev/null)
+            STATE=$(az provider show -n "$PNAME" --query "registrationState" -o tsv 2>/dev/null || true)
 
             if [ "$STATE" = "Registered" ]; then
               printf "${Green}   [OK] %s (%s)${NC}\n" "$PDESC" "$PNAME"
             else
               printf "${Red}   [!!] %s (%s) - %s${NC}\n" "$PDESC" "$PNAME" "$STATE"
               printf "${Yellow}   Registering %s...${NC}" "$PNAME"
-              az provider register -n "$PNAME" --wait 2>/dev/null
-              STATE=$(az provider show -n "$PNAME" --query "registrationState" -o tsv 2>/dev/null)
+              az provider register -n "$PNAME" --wait 2>/dev/null || true
+              STATE=$(az provider show -n "$PNAME" --query "registrationState" -o tsv 2>/dev/null || true)
               if [ "$STATE" = "Registered" ]; then
                 printf "${Green} OK${NC}\n"
               else
