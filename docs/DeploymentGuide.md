@@ -87,7 +87,7 @@ Select one of the following options to set up your deployment environment:
 
 1. Click the badge above (may take several minutes to load)
 2. Accept default values on the Codespaces creation page
-3. Wait for the environment to initialize (includes all deployment tools)
+3. Wait for the environment to initialize — the setup script automatically installs Python and Node.js dependencies (~2–3 minutes). You'll see `Setup complete! 🎉` in the terminal when it's done.
 4. **Authenticate with Azure** (both CLI tools are required):
    ```bash
    azd auth login --use-device-code
