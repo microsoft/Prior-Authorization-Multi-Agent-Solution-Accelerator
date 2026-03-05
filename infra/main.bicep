@@ -125,7 +125,7 @@ module backend './modules/container-app.bicep' = {
       { name: 'ANTHROPIC_FOUNDRY_API_KEY', secretRef: 'foundry-api-key' }
       { name: 'ANTHROPIC_FOUNDRY_BASE_URL', value: azureFoundryEndpoint }
       { name: 'CLAUDE_MODEL', value: claudeModel }
-      { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: monitoring.outputs.appInsightsConnectionString }
+      { name: 'APPLICATION_INSIGHTS_CONNECTION_STRING', value: monitoring.outputs.appInsightsConnectionString }
       { name: 'FRONTEND_ORIGIN', value: 'https://${abbrs.appContainerApps}frontend-${resourceToken}.${containerAppsEnv.outputs.defaultDomain}' }
     ]
     secrets: [
