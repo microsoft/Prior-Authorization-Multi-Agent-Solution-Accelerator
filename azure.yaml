@@ -274,7 +274,7 @@ hooks:
           Write-Host ""
           Write-Host " Resources to be created:" -ForegroundColor Yellow
           Write-Host "   • Resource Group" -ForegroundColor White
-          Write-Host "   • AI Foundry Hub + Project (+ Storage Account, Key Vault)" -ForegroundColor White
+          Write-Host "   • Microsoft Foundry Hub + Project (+ Storage Account, Key Vault)" -ForegroundColor White
           Write-Host "   • Container Registry" -ForegroundColor White
           Write-Host "   • Container Apps Environment" -ForegroundColor White
           Write-Host "   • Backend Container App (Python/FastAPI)" -ForegroundColor White
@@ -528,7 +528,7 @@ hooks:
           # Resources to be created
           printf "\n${Yellow} Resources to be created:${NC}\n"
           printf "   • Resource Group\n"
-          printf "   • AI Foundry Hub + Project (+ Storage Account, Key Vault)\n"
+          printf "   • Microsoft Foundry Hub + Project (+ Storage Account, Key Vault)\n"
           printf "   • Container Registry\n"
           printf "   • Container Apps Environment\n"
           printf "   • Backend Container App (Python/FastAPI)\n"
@@ -598,7 +598,7 @@ hooks:
         Write-Host "===============================================================" -ForegroundColor Yellow
         Write-Host ""
         Write-Host " Next Steps:" -ForegroundColor White
-        Write-Host "  1. Deploy Claude Sonnet 4.6 in AI Foundry portal" -ForegroundColor White
+        Write-Host "  1. Deploy Claude Sonnet 4.6 in Microsoft Foundry portal" -ForegroundColor White
         Write-Host "  2. Set credentials:" -ForegroundColor White
         Write-Host "     azd env set AZURE_FOUNDRY_API_KEY <your-api-key>" -ForegroundColor Gray
         Write-Host "     azd env set AZURE_FOUNDRY_ENDPOINT <your-endpoint>" -ForegroundColor Gray
@@ -661,7 +661,7 @@ hooks:
         printf "${Green} DEPLOYMENT COMPLETE\n"
         printf "${Yellow}===============================================================${NC}\n\n"
         printf "${White} Next Steps:${NC}\n"
-        printf "  1. Deploy Claude Sonnet 4.6 in AI Foundry portal\n"
+        printf "  1. Deploy Claude Sonnet 4.6 in Microsoft Foundry portal\n"
         printf "  2. Set credentials:\n"
         printf "${Gray}     azd env set AZURE_FOUNDRY_API_KEY <your-api-key>${NC}\n"
         printf "${Gray}     azd env set AZURE_FOUNDRY_ENDPOINT <your-endpoint>${NC}\n"
