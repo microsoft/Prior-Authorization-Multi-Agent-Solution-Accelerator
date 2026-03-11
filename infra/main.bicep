@@ -96,6 +96,8 @@ module aiFoundry './modules/ai-foundry.bicep' = {
     name: '${abbrs.aiFoundry}${resourceToken}'
     location: location
     tags: tags
+    appInsightsInstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
+    appInsightsResourceId: monitoring.outputs.appInsightsResourceId
   }
 }
 
