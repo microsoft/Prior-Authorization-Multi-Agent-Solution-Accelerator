@@ -11,15 +11,13 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Install Python dependencies
-# claude-agent-sdk ships platform-specific wheels that bundle the Claude Code
-# CLI binary — no separate Node.js or CLI installation needed on Linux.
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app/ ./app/
 
-# Create non-root user — Claude Code CLI refuses to run as root
+# Non-root user for security
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
