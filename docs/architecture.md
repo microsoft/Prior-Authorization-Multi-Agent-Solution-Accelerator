@@ -84,7 +84,7 @@ The application uses a **pure HTTP dispatch** architecture. The FastAPI backend 
 
 5. Frontend displays real-time progress tracker with phase timeline and agent cards.
 
-6. Review dashboard shows recommendation, agent details (tabbed), and audit justification download.
+6. Review dashboard shows recommendation, agent details in four tabs (Compliance checklist, Clinical extraction, Coverage criteria, **Synthesis** gate pipeline + confidence breakdown), and audit justification download.
 
 7. Decision Panel supports Accept or Override flow with notification letter generation.
 
@@ -172,6 +172,8 @@ Each agent's execution is fully transparent in the frontend with Checks Summary 
 | 6 | Clinical Notes Presence | Substantive clinical narrative (not just codes) |
 | 7 | Clinical Notes Quality | Meaningful detail; boilerplate/copy-paste detection |
 | 8 | Insurance Plan Type (non-blocking) | Medicare/Medicaid/Commercial/MA identification |
+| 9 | NCCI Edit Awareness (non-blocking) | Flags multi-CPT bundling risk; defers full NCCI validation to Coverage Agent |
+| 10 | Service Type (non-blocking) | Classifies as Procedure/Medication/Imaging/Device/Therapy/Facility for downstream policy routing |
 
 ### Clinical Reviewer Agent
 
@@ -208,11 +210,12 @@ Each agent's execution is fully transparent in the frontend with Checks Summary 
 | # | Rule | MCP tools used | Sub-items |
 |---|------|---------------|-----------|
 | 1 | Provider NPI Verification | `npi_validate`, `npi_lookup` | Format check + NPPES lookup |
+| 1.4 | Provider Specialty-Procedure Appropriateness **(REQUIRED)** | `npi_lookup` taxonomy | Emitted as an explicit `criteria_assessment` entry: `MET`/`NOT_MET`/`INSUFFICIENT` based on NPI taxonomy vs. requested CPT category |
 | 2 | MAC Identification | `get_contractors` | State-based MAC lookup |
 | 3 | Coverage Policy Search | `search_national_coverage`, `search_local_coverage` | NCD and LCD searches |
 | 4 | Policy Detail Retrieval | `get_coverage_document`, `batch_get_ncds` | Full policy text |
 | 5 | Clinical Evidence to Criteria Mapping | None (reasoning) | Per-criterion MET/NOT_MET/INSUFFICIENT |
-| 6 | Diagnosis-Policy Alignment (AUDITABLE) | None (reasoning) | ICD-10 vs. policy indications |
+| 6 | Diagnosis-Policy Alignment **(AUDITABLE, REQUIRED)** | None (reasoning) | ICD-10 vs. policy indications |
 | 7 | Documentation Gap Analysis | None (reasoning) | Critical vs. non-critical |
 
 **Criteria evaluation:**
@@ -228,7 +231,7 @@ Each agent's execution is fully transparent in the frontend with Checks Summary 
 | **Tools** | CPT format validation (local), no MCP tools |
 | **`max_turns`** | 5 (synthesis agent) |
 | **Input** | All three agent reports + CPT validation results |
-| **Output** | APPROVE/PEND recommendation, confidence (0-1.0 + HIGH/MEDIUM/LOW), rationale, audit trail |
+| **Output** | APPROVE/PEND recommendation, confidence (0-1.0 + HIGH/MEDIUM/LOW), rationale, `synthesis_audit_trail` (gate_results + confidence_components), disclaimer |
 
 ---
 
@@ -335,10 +338,10 @@ skills_provider = FileAgentSkillsProvider(
 
 | Skill | Directory | MCP Servers | Purpose |
 |-------|-----------|-------------|---------|
-| Compliance Review | `agents/compliance/skills/compliance-review/` | None | 8-item documentation completeness checklist |
-| Clinical Review | `agents/clinical/skills/clinical-review/` | icd10-codes, pubmed, clinical-trials | Code validation, clinical extraction, literature + trials |
-| Coverage Assessment | `agents/coverage/skills/coverage-assessment/` | npi-registry, cms-coverage | Provider verification, policy search, criteria mapping |
-| Synthesis Decision | `agents/synthesis/skills/synthesis-decision/` | None | Gate-based evaluation, weighted confidence, final recommendation |
+| Compliance Review | `agents/compliance/skills/compliance-review/` | None | 10-item documentation completeness checklist (items 1-7 blocking; 8 plan type, 9 NCCI bundling, 10 service type — non-blocking) |
+| Clinical Review | `agents/clinical/skills/clinical-review/` | icd10-codes, pubmed, clinical-trials | Code validation, clinical extraction, low-confidence warning (< 60%), literature + trials |
+| Coverage Assessment | `agents/coverage/skills/coverage-assessment/` | npi-registry, cms-coverage | Provider verification, specialty-procedure match, policy search, criteria mapping, Diagnosis-Policy Alignment |
+| Synthesis Decision | `agents/synthesis/skills/synthesis-decision/` | None | Gate-based evaluation, weighted confidence, `synthesis_audit_trail` breakdown, final recommendation + disclaimer |
 
 ---
 

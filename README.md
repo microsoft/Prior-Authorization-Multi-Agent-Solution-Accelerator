@@ -18,7 +18,9 @@ The solution supports **two runtime modes**:
 Incorporates best practices from the
 [Anthropic prior-auth-review-skill](https://github.com/anthropics/healthcare/tree/main/prior-auth-review-skill):
 LENIENT mode decision policy, per-criterion MET/NOT_MET/INSUFFICIENT evaluation,
-confidence scoring, progressive gate evaluation, and structured audit trails.
+confidence scoring, progressive gate evaluation, structured audit trails, NCCI
+bundling risk flagging, service-type classification, and provider
+specialty-procedure appropriateness as an auditable criterion.
 
 <div align="center">
 
@@ -65,30 +67,34 @@ Next.js frontend remain in Azure Container Apps.
 prior-auth-maf/
 ├── backend/               # FastAPI orchestrator — SSE streaming, review dashboard, audit PDF
 │   ├── app/
-│   │   ├── agents/        # Legacy local agent wrappers (used when USE_HOSTED_AGENTS=false)
-│   │   ├── routers/       # /review, /decision endpoints
-│   │   ├── services/      # hosted_agents.py HTTP dispatch, audit PDF, CPT validation
-│   │   └── tools/         # mcp_config.py (local mode MCP server config)
+│   │   ├── agents/        # HTTP dispatchers to hosted agent containers + orchestrator
+│   │   ├── routers/       # /review, /decision, /agents endpoints
+│   │   ├── services/      # hosted_agents.py HTTP dispatch, audit_pdf.py, cpt_validation.py, notification.py
+│   │   └── models/        # Pydantic schemas (schemas.py)
 │   └── Dockerfile
 │
 ├── agents/                # Four independent MAF Hosted Agent deployable units
 │   ├── clinical/          # ICD-10, PubMed, Clinical Trials MCP — port 8001
-│   │   ├── main.py        # from_agent_framework entry point
+│   │   ├── main.py        # from_agent_framework entry point + structured output via default_options
+│   │   ├── schemas.py     # Pydantic output model (ClinicalResult)
 │   │   ├── Dockerfile
 │   │   ├── agent.yaml     # Foundry Hosted Agent descriptor
 │   │   └── skills/clinical-review/SKILL.md
 │   ├── coverage/          # NPI Registry, CMS Coverage MCP — port 8002
 │   │   ├── main.py
+│   │   ├── schemas.py     # Pydantic output model (CoverageResult)
 │   │   ├── Dockerfile
 │   │   ├── agent.yaml
 │   │   └── skills/coverage-assessment/SKILL.md
 │   ├── compliance/        # No MCP tools — pure reasoning — port 8003
 │   │   ├── main.py
+│   │   ├── schemas.py     # Pydantic output model (ComplianceResult)
 │   │   ├── Dockerfile
 │   │   ├── agent.yaml
 │   │   └── skills/compliance-review/SKILL.md
 │   └── synthesis/         # No MCP tools — gate-based synthesis — port 8004
 │       ├── main.py
+│       ├── schemas.py     # Pydantic output model (SynthesisOutput)
 │       ├── Dockerfile
 │       ├── agent.yaml
 │       └── skills/synthesis-decision/SKILL.md
@@ -142,19 +148,23 @@ The orchestrator coordinates four phases with four specialized agents:
 <details>
   <summary><b>Foundry Hosted Agent architecture</b></summary>
 
-  - Each of the 4 specialist agents has its own `main.py`, `Dockerfile`, `agent.yaml`, and `skills/` directory under `agents/<name>/`
-  - Agents are built with the native MAF `from_agent_framework` pattern — no Claude CLI subprocess, full OpenTelemetry trace propagation
-  - `USE_HOSTED_AGENTS=true` switches the FastAPI orchestrator from any local fallback to HTTP dispatch across the 4 independent agent containers
-  - `USE_HOSTED_AGENTS=false` keeps a lightweight local fallback; the same SSE contract, decision handling, and PDF generation remain in the backend regardless of mode
-  - Each agent container is independently versioned, deployable, and scalable
+  - Each of the 4 specialist agents has its own `main.py`, `schemas.py`, `Dockerfile`, `agent.yaml`, and `skills/` directory under `agents/<name>/`
+  - Agents use the native MAF `from_agent_framework` pattern with `default_options={"response_format": PydanticModel}` for token-level structured output — no JSON fence parsing
+  - The FastAPI backend is a **pure HTTP dispatcher** — it has no local AI runtime; all specialist reasoning runs in the four independent agent containers
+  - Each agent container exposes `POST /responses` (Foundry Responses API protocol) and is independently versioned, deployable, and scalable
+  - The same `hosted_agents.py` dispatch layer works unchanged for both Docker Compose (container-to-container) and Azure Foundry (hosted agents over HTTPS)
 </details>
 
 <details>
   <summary><b>Skills-based architecture</b></summary>
 
   - Agent behaviors defined in SKILL.md files — domain experts can update clinical rules without code changes
-  - Dual-mode support: skills-based (default) or prompt-based (fallback), controlled by `USE_SKILLS` env var
-  - Shared reference files for decision policy rubric and JSON output schemas
+  - SKILL.md files live alongside each agent container under `agents/<name>/skills/<skill-name>/SKILL.md`
+  - Loaded at agent startup via MAF `FileAgentSkillsProvider` — no backend code changes needed to update clinical rules
+  - Compliance skill: 10-item checklist (NCCI bundling + service type classification added as items 9 and 10)
+  - Coverage skill: Provider Specialty-Procedure Appropriateness is now a required explicit criterion (Step 1.4)
+  - Clinical skill: low-confidence extraction banner when `extraction_confidence < 60%` surfaces directly in the frontend Clinical tab
+  - Synthesis skill: emits `synthesis_audit_trail` (gate results + weighted confidence breakdown) visible in the frontend Synthesis tab
 </details>
 
 <details>
@@ -183,15 +193,19 @@ The orchestrator coordinates four phases with four specialized agents:
   - Override traceability: flows to notification letters, audit PDF, and API response
   - Authorization number generation (PA-YYYYMMDD-XXXXX)
   - PDF notification letters (approval and pend) with clinical justification data
+  - All four agents visible in tabbed Agent Details: Compliance checklist, Clinical extraction (with low-confidence banner), Coverage criteria (including specialty-procedure match), and **Synthesis** gate pipeline + weighted confidence breakdown + disclaimer
 </details>
 
 <details>
   <summary><b>Audit and compliance</b></summary>
 
+  - 10-item compliance checklist with blocking/non-blocking classification; items 9 (NCCI bundling risk) and 10 (service type classification) are new domain-aware improvements over the baseline Anthropic skill
+  - Provider Specialty-Procedure Appropriateness as a required, auditable `criteria_assessment` entry in the Coverage Agent — sourced from NPI Registry taxonomy
+  - Per-criterion confidence scoring with weighted formula (40% criteria + 30% extraction + 20% compliance + 10% policy)
+  - `synthesis_audit_trail` with `gate_results` and `confidence_components` surfaced in the frontend Synthesis tab
   - 8-section audit justification document (Markdown + color-coded PDF)
-  - Per-criterion confidence scoring with weighted formula
-  - Complete data source attribution and timestamp tracking
   - Diagnosis-Policy Alignment as a required auditable criterion
+  - Complete data source attribution and timestamp tracking
   - Section 9 added on clinician override with full override record
 </details>
 
@@ -295,7 +309,7 @@ By using the *Prior Authorization Review — Multi-Agent Solution Accelerator*, 
 
   | Scenario | Persona | Challenges | Solution Approach |
   |----------|---------|------------|-------------------|
-  | PA intake triage | Utilization Review Nurse | Manually checking demographics, provider credentials, codes, and clinical notes quality for completeness is time-consuming and error-prone. | **Compliance Agent** validates all required documentation in seconds, flagging missing or insufficient fields before clinical review begins. |
+  | PA intake triage | Utilization Review Nurse | Manually checking demographics, provider credentials, codes, and clinical notes quality for completeness is time-consuming and error-prone. | **Compliance Agent** validates all required documentation in seconds with a 10-item checklist: items 1-7 are blocking; item 9 flags NCCI CPT bundling risk; item 10 classifies service type (Procedure/Medication/Imaging/Device/Therapy/Facility) for downstream routing. |
   | Clinical evidence review | Medical Director | Extracting structured clinical data, validating ICD-10 codes, and searching PubMed for supporting evidence takes 15–30 minutes per case. | **Clinical Reviewer Agent** automates clinical data extraction, code validation, and literature/trial search using MCP-connected healthcare data sources. |
   | Coverage policy evaluation | PA Coordinator | Looking up Medicare NCDs/LCDs, mapping each policy criterion to clinical evidence, and documenting medical necessity assessments is manual and inconsistent. | **Coverage Agent** searches CMS coverage databases, verifies provider credentials, and produces auditable MET/NOT_MET/INSUFFICIENT criterion mappings. |
   | Final decision synthesis | Clinical Reviewer | Combining findings from multiple reviewers into a consistent, auditable recommendation with confidence scoring requires significant coordination. | **Orchestrator + Synthesis** evaluates a gate-based rubric (Provider → Codes → Medical Necessity), produces a recommendation with confidence scores, and generates notification letters and audit PDFs. |

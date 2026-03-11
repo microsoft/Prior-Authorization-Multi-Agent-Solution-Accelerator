@@ -56,10 +56,10 @@ SKILL.md files live alongside the agent:
 
 ```
 agents/
-  clinical/skills/clinical-review/SKILL.md
-  coverage/skills/coverage-assessment/SKILL.md
-  compliance/skills/compliance-review/SKILL.md
-  synthesis/skills/synthesis-decision/SKILL.md
+  clinical/skills/clinical-review/SKILL.md      # ICD-10 validation, clinical extraction (< 60% warning), literature + trials
+  coverage/skills/coverage-assessment/SKILL.md  # Provider NPI, specialty-procedure match, CMS policy, criteria mapping
+  compliance/skills/compliance-review/SKILL.md  # 10-item checklist (items 9: NCCI, 10: service type are non-blocking)
+  synthesis/skills/synthesis-decision/SKILL.md  # Gate rubric, weighted confidence, synthesis_audit_trail output
 ```
 
 ---
@@ -96,7 +96,7 @@ The Pydantic models live in each agent container:
 | Clinical | `agents/clinical/schemas.py` | `ClinicalResult` |
 | Compliance | `agents/compliance/schemas.py` | `ComplianceResult` |
 | Coverage | `agents/coverage/schemas.py` | `CoverageResult` |
-| Synthesis | `agents/synthesis/schemas.py` | `SynthesisOutput` |
+| Synthesis | `agents/synthesis/schemas.py` | `SynthesisOutput` (includes `synthesis_audit_trail: dict` with `gate_results` and `confidence_components`) |
 
 ---
 
