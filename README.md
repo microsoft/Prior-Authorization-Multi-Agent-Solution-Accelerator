@@ -255,20 +255,20 @@ Follow the quick deploy steps on the deployment guide to deploy this solution to
 >
 > The **Quick Deploy** path described below uses `azd up` → Foundry Hosted Agent mode.
 
-> ⚠️ **Important: Check Microsoft Foundry Quota Availability**
-> <br/>To ensure Claude models are available in your target region, please check the [model availability instructions](./docs/DeploymentGuide.md#13-claude-model-access-pre-check) before you deploy the solution.
+> ⚠️ **Important: Check Azure OpenAI Quota Availability**
+> <br/>To ensure the **gpt-4.5** model is available in your target region, please check the [model availability instructions](./docs/DeploymentGuide.md#13-model-access-pre-check) before you deploy the solution.
 
 ### Prerequisites & Costs
 
-To deploy this solution accelerator, ensure you have access to an [Azure subscription](https://azure.microsoft.com/free/) with the necessary permissions to create resource groups and resources. The **Microsoft Foundry Resource and Project** are automatically provisioned by `azd up`. After deployment, you will deploy the **Claude model** from the model catalog — see [Use Foundry Models Claude](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-claude) for details.
+To deploy this solution accelerator, ensure you have access to an [Azure subscription](https://azure.microsoft.com/free/) with the necessary permissions to create resource groups and resources. The **Microsoft Foundry Resource and Project** are automatically provisioned by `azd up`. The solution uses the **Azure OpenAI gpt-4.5** model, which is automatically deployed as part of `azd up` — see [Azure OpenAI model availability](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models) for details.
 
-> ⚠️ **Region requirement:** Claude models on Microsoft Foundry are currently available only in **East US 2** and **Sweden Central**. You must deploy to one of these regions. See [Use Foundry Models Claude](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-claude) for the latest region availability.
+> ⚠️ **Region requirement:** Azure OpenAI **gpt-4.5** is currently available only in **East US 2** and **Sweden Central**. You must deploy to one of these regions. See [Azure OpenAI model availability](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models) for the latest region availability.
 
 Pricing varies per region and usage, so it isn't possible to predict exact costs for your usage. The majority of the Azure resources used in this infrastructure are on usage-based pricing tiers. Use the [Azure pricing calculator](https://azure.microsoft.com/en-us/pricing/calculator) to estimate costs for your subscription.
 
 | Azure Service | Purpose | Pricing |
 |--------------|---------|---------|
-| [Microsoft Foundry](https://azure.microsoft.com/en-us/pricing/details/ai-foundry/) | Foundry Resource + Project (auto-provisioned) + Claude model inference | [Pricing](https://azure.microsoft.com/en-us/pricing/details/ai-foundry/) |
+| [Microsoft Foundry](https://azure.microsoft.com/en-us/pricing/details/ai-foundry/) | Foundry Resource + Project (auto-provisioned) + Azure OpenAI gpt-4.5 inference | [Pricing](https://azure.microsoft.com/en-us/pricing/details/ai-foundry/) |
 | [Azure Container Apps](https://azure.microsoft.com/en-us/pricing/details/container-apps/) | Backend (2 CPU / 4Gi, min 1 replica) + frontend hosting | [Pricing](https://azure.microsoft.com/en-us/pricing/details/container-apps/) |
 | [Azure Container Registry](https://azure.microsoft.com/en-us/pricing/details/container-registry/) | Docker image storage | [Pricing](https://azure.microsoft.com/en-us/pricing/details/container-registry/) |
 | [Azure Application Insights](https://azure.microsoft.com/en-us/pricing/details/monitor/) | Observability and tracing (optional) | [Pricing](https://azure.microsoft.com/en-us/pricing/details/monitor/) |
