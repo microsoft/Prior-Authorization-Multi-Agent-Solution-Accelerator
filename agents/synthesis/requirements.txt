@@ -1,5 +1,5 @@
 # Microsoft Agent Framework — core runtime
-agent-framework>=0.1.0
+agent-framework-core>=0.1.0
 # Foundry Hosted Agent server adapter — core protocol layer + MAF adapter
 # See: https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agents#public-adapter-packages
 azure-ai-agentserver-core>=0.1.0
