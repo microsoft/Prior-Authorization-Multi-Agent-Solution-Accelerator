@@ -21,6 +21,14 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 | **Contributor** | Subscription level | Create and manage Azure resources |
 | **User Access Administrator** | Subscription level | Manage user access and role assignments |
 
+> **Why User Access Administrator?** `azd up` automatically assigns the following RBAC roles via `infra/modules/role-assignments.bicep` — this requires your account to have User Access Administrator (or Owner) on the subscription:
+>
+> | **Role Assigned** | **To** | **On** | **Purpose** |
+> |-------------------|--------|--------|-------------|
+> | Cognitive Services OpenAI User | Backend Container App managed identity | Foundry account | Lets the FastAPI orchestrator call the Foundry Responses API |
+> | AcrPull | Foundry project managed identity | Container Registry | Lets Foundry pull the 4 agent images when provisioning Hosted Agents |
+> | Azure AI Developer | Deployer (you, running `azd up`) | Foundry account | Lets `register_agents.py` register agents via the Foundry Agent Service API |
+
 **🔍 How to Check Your Permissions:**
 
 1. Go to [Azure Portal](https://portal.azure.com/)

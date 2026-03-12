@@ -296,8 +296,14 @@ Shared: `HOSTED_AGENT_TIMEOUT_SECONDS` (default `180`).
 | `HOSTED_AGENT_SYNTHESIS_NAME` | `synthesis-agent` |
 
 Token acquisition uses `azure.identity.aio.DefaultAzureCredential` — no manual token configuration needed.
-The backend ACA managed identity holds `CognitiveServicesOpenAIUser` on the Foundry account
-(granted by `infra/modules/role-assignments.bicep`).
+
+The following RBAC roles are automatically assigned by `infra/modules/role-assignments.bicep` during `azd provision`:
+
+| **Role** | **Principal** | **Scope** | **Purpose** |
+|----------|---------------|-----------|-------------|
+| Cognitive Services OpenAI User | Backend Container App managed identity | Foundry account | Orchestrator calls Foundry Responses API with `agent_reference` routing |
+| AcrPull | Foundry project managed identity | Container Registry | Foundry Agent Service pulls agent container images from ACR |
+| Azure AI Developer | Deployer (user running `azd up`) | Foundry account | `register_agents.py` registers agents via Foundry Agent Service API |
 
 ---
 
