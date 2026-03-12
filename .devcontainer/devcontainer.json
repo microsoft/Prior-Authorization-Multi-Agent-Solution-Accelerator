@@ -32,7 +32,7 @@
   },
   "forwardPorts": [3000, 8000],
   "postCreateCommand": "bash ./.devcontainer/setupEnv.sh",
-  "postAttachCommand": "bash -c 'if [ -f /tmp/.devcontainer-setup-complete ]; then echo \"\"; echo \"✅  Environment setup complete — ready to deploy!\"; echo \"    Next: azd auth login && az login && azd up\"; echo \"\"; else echo \"\"; echo \"╔══════════════════════════════════════════════════════════════╗\"; echo \"║  ⏳  ENVIRONMENT SETUP IN PROGRESS — PLEASE WAIT            ║\"; echo \"╠══════════════════════════════════════════════════════════════╣\"; echo \"║                                                              ║\"; echo \"║  Dependencies are still being installed:                    ║\"; echo \"║    • Azure CLI  • azd  • Python packages  • npm packages    ║\"; echo \"║                                                              ║\"; echo \"║  ⚠️  DO NOT run azd up yet — tools may not be ready.        ║\"; echo \"║                                                              ║\"; echo \"║  Monitor progress: Codespaces menu > View Creation Log      ║\"; echo \"║  This banner disappears once setup is complete.             ║\"; echo \"║                                                              ║\"; echo \"╚══════════════════════════════════════════════════════════════╝\"; echo \"\"; fi'",
+  "postAttachCommand": "echo ''",
   "remoteEnv": {
     "PYTHONUNBUFFERED": "True"
   },

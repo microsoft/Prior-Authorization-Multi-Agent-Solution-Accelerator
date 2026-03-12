@@ -1,7 +1,28 @@
 #!/bin/sh
 
-# Write sentinel so postAttachCommand can warn users setup is still running
-touch /tmp/.devcontainer-setup-running
+# ── Inject setup-in-progress banner into ~/.bashrc ───────────────────────────
+# This runs every time a new bash terminal opens until setup is complete.
+cat >> ~/.bashrc << 'BANNER_EOF'
+
+# === Prior Auth MAF: devcontainer setup banner (auto-removed when done) ===
+if [ ! -f /tmp/.devcontainer-setup-complete ]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  ⏳  ENVIRONMENT SETUP IN PROGRESS — PLEASE WAIT            ║"
+  echo "╠══════════════════════════════════════════════════════════════╣"
+  echo "║                                                              ║"
+  echo "║  Installing: Azure CLI • azd • Python packages • npm        ║"
+  echo "║                                                              ║"
+  echo "║  ⚠️  DO NOT run  azd up  until you see the ✅ message.      ║"
+  echo "║                                                              ║"
+  echo "║  Monitor: Codespaces menu ▸ View Creation Log               ║"
+  echo "║                                                              ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+fi
+# === end banner ===
+BANNER_EOF
+
 rm -f /tmp/.devcontainer-setup-complete
 
 echo "Pull latest code for the current branch"
@@ -41,6 +62,16 @@ cd ../
 
 echo "Setup complete! 🎉"
 
-# Mark setup as complete for postAttachCommand banner
-rm -f /tmp/.devcontainer-setup-running
+# Mark setup complete and remove the warning banner from ~/.bashrc
 touch /tmp/.devcontainer-setup-complete
+sed -i '/# === Prior Auth MAF: devcontainer setup banner/,/# === end banner ===/d' ~/.bashrc
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║  ✅  ENVIRONMENT READY — open a new terminal to deploy       ║"
+echo "╠══════════════════════════════════════════════════════════════╣"
+echo "║                                                              ║"
+echo "║  Run:  azd auth login && az login && azd up                 ║"
+echo "║                                                              ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
