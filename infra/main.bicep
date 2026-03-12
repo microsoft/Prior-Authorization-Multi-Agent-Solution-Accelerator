@@ -2,7 +2,7 @@
 // Prior Auth MAF — Main Bicep template
 // Deploys: Resource Group, Microsoft Foundry (Resource + Project), Container Registry,
 //          Container Apps Environment, Backend + 4 Agent + Frontend Container Apps,
-//          Log Analytics, App Insights, Role Assignments (Cognitive Services OpenAI User)
+//          Log Analytics, App Insights, Role Assignments (Cognitive Services OpenAI User, Azure AI Developer)
 // ---------------------------------------------------------------------------
 
 targetScope = 'subscription'
