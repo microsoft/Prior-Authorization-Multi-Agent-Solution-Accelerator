@@ -175,10 +175,6 @@ def run() -> None:
                     name,
                     "--agent-version",
                     str(version_num),
-                    "--min-replicas",
-                    "1",
-                    "--max-replicas",
-                    "3",
                 ],
                 check=True,
                 capture_output=True,
@@ -186,12 +182,14 @@ def run() -> None:
             )
             print(" started")
         except subprocess.CalledProcessError as exc:
-            # Start command may not be available in all CLI versions yet.
-            # First deployment can also be started from the Foundry portal.
-            print(
-                f" WARNING: could not auto-start via CLI ({exc.returncode}).\n"
-                f"  Manually start from Foundry portal: Agents → {name} → Start",
-            )
+            # "conflict" means the agent is already running — treat as success
+            if "already exists with status Running" in (exc.stderr or ""):
+                print(" already running")
+            else:
+                print(
+                    f" WARNING: could not auto-start via CLI ({exc.returncode}).\n"
+                    f"  Manually start from Foundry portal: Agents → {name} → Start",
+                )
         except FileNotFoundError:
             print(
                 " WARNING: 'az' CLI not found — start the agent from Foundry portal:\n"
