@@ -1,7 +1,10 @@
 # =============================================================================
 # Compliance Validation Agent — MAF Hosted Agent container
 # =============================================================================
-FROM python:3.12-slim
+# IMPORTANT: --platform=linux/amd64 is required — Foundry Hosted Agents run on
+# Linux AMD64 infrastructure. Images built without this (e.g. on Apple Silicon)
+# will fail at runtime. See: https://aka.ms/foundry-hosted-agents
+FROM --platform=linux/amd64 python:3.12-slim
 
 # Install curl for health check
 RUN apt-get update && \
