@@ -215,7 +215,7 @@ Update `_build_audit_trail()`, `_generate_audit_justification()`, and
 | `agents/new-agent/schemas.py` | New file: Pydantic output model |
 | `agents/new-agent/skills/new-agent/SKILL.md` | New file: skill instructions |
 | `agents/new-agent/Dockerfile` | New file: container image |
-| `agents/new-agent/requirements.txt` | New file: `agent-framework`, `azure-ai-agentserver`, `azure-ai-projects`, `azure-identity`, `httpx`, `python-dotenv` |
+| `agents/new-agent/requirements.txt` | New file: `agent-framework-core>=1.0.0rc2,<=1.0.0rc3`, `azure-ai-agentserver-core>=1.0.0b16`, `azure-ai-agentserver-agentframework>=1.0.0b16`, `azure-identity`, `httpx`, `python-dotenv` (note: `azure-ai-projects` is resolved transitively) |
 | `docker-compose.yml` | Add new agent service + env vars |
 | `agents/new-agent/agent.yaml` | New file: Foundry Hosted Agent descriptor (name, runtime, resources, env vars) |
 | `scripts/register_agents.py` | Add new agent to the registration list |

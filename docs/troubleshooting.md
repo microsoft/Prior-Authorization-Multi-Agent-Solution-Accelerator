@@ -124,6 +124,7 @@ agent deployment.
 **Foundry Hosted Agents (production):** Credentials come from `DefaultAzureCredential`. Common causes:
 
 - The backend ACA managed identity is missing the `CognitiveServicesOpenAIUser` role on the Foundry account — check `infra/modules/role-assignments.bicep` and re-run `azd provision`
+- The deployer user is missing the `Azure AI Developer` role on the Foundry account (required by `scripts/register_agents.py` to register agents) — this role is now auto-assigned by `infra/modules/role-assignments.bicep` when `principalId` is provided; re-run `azd provision` to fix
 - `AZURE_AI_PROJECT_ENDPOINT` is pointing to the wrong project or account
 - The agents were not successfully registered — check `scripts/register_agents.py` output in the postprovision hook logs
 

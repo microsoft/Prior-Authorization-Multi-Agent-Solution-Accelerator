@@ -367,7 +367,7 @@ This solution accelerator handles **Protected Health Information (PHI)** and cli
 
 | Environment | Credential used | How it's granted |
 |---|---|---|
-| Azure (production) | System-assigned [Managed Identity](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview) on each Container App | Bicep role assignments at deploy time (`CognitiveServicesOpenAIUser`) |
+| Azure (production) | System-assigned [Managed Identity](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview) on each Container App; deployer user identity | Bicep role assignments at deploy time (`CognitiveServicesOpenAIUser` for backend, `Azure AI Developer` for deployer) |
 | Local / Codespaces | Azure Developer CLI token (`azd auth login`) or Azure CLI token (`az login`) | Developer's own authenticated session |
 
 Because there are no API keys, there is nothing to rotate, leak, or accidentally commit. To ensure continued best practices in your own repository, we recommend enabling [GitHub secret scanning](https://docs.github.com/code-security/secret-scanning/about-secret-scanning) to catch any credentials that might be inadvertently introduced.

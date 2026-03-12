@@ -595,7 +595,7 @@ The level of trace detail visible in Foundry depends on upstream framework relea
 | **Agent-level traces** | Available now (rc3+) | `invoke_agent` spans with agent name, duration, response capture, exception tracking |
 | **Tool-level traces** | Available now with MAF native agents | Individual MCP tool call spans (e.g., `npi_lookup`, `validate_code`) as child spans via `gen_ai.*` semantic conventions |
 
-MAF's `from_agent_framework` pattern emits W3C-compliant trace context and standard `gen_ai.*` OTel spans natively — this resolves the black-box tracing limitation of the previous Claude SDK subprocess approach. To pick up updated trace capabilities, update `agent-framework` and `azure-ai-agentserver` versions in each `agents/*/requirements.txt` and rebuild.
+MAF's `from_agent_framework` pattern emits W3C-compliant trace context and standard `gen_ai.*` OTel spans natively — this resolves the black-box tracing limitation of the previous Claude SDK subprocess approach. Agent dependency versions are already pinned in each `agents/*/requirements.txt` (`agent-framework-core>=1.0.0rc2,<=1.0.0rc3`, `azure-ai-agentserver-core>=1.0.0b16`, `azure-ai-agentserver-agentframework>=1.0.0b16`). To pick up newer trace capabilities, update those pins and rebuild.
 
 📖 **Learn More:**
 - [Register a custom agent in Foundry Control Plane](https://learn.microsoft.com/en-us/azure/foundry/control-plane/register-custom-agent)
