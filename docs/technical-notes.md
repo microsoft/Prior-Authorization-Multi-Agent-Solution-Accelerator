@@ -307,6 +307,8 @@ The following RBAC roles are automatically assigned during `azd up`:
 
 The first two roles are assigned by `infra/modules/role-assignments.bicep` during `azd provision`. The Azure AI Developer role is assigned via `az role assignment create` in the postprovision hook — this is intentionally outside Bicep because the CLI command is natively idempotent (no error if the role was previously granted manually).
 
+> **First-run note:** Azure RBAC propagation can take up to several minutes after a new role assignment. On the very first `azd up` (when the Azure AI Developer role is newly created), the postprovision hook automatically retries `register_agents.py` every 10 seconds (up to 12 attempts) until the permission propagates. On subsequent runs the role already exists and no retries are needed.
+
 ---
 
 ## Agent Registration

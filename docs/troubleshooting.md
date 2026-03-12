@@ -130,6 +130,22 @@ agent deployment.
 
 ---
 
+## Agent Registration Fails with PermissionDenied on First Run
+
+`register_agents.py` fails with:
+```
+ERROR: (PermissionDenied) The principal ... lacks the required data action
+Microsoft.CognitiveServices/accounts/AIServices/agents/write
+```
+
+**Cause:** Azure RBAC propagation delay. The postprovision hook assigns the Azure AI Developer role immediately before running `register_agents.py`, but Azure's role cache can take up to several minutes to update.
+
+**Automatic handling:** The hook automatically detects newly assigned roles and retries `register_agents.py` every 10 seconds (up to 12 attempts / ~2 minutes). You'll see "Waiting for RBAC propagation (attempt N/12)..." messages in the output — this is expected on first deployment.
+
+**If all 12 retries fail:** RBAC propagation took unusually long. Simply re-run `azd up` — the role already exists so registration will proceed without retries.
+
+---
+
 ## Hosted agent returns an unexpected payload shape
 
 The backend reaches the hosted agent, but parsing or downstream validation

@@ -317,7 +317,7 @@ azd up
 
 > **Note:** Container images are built remotely on Azure Container Registry, so no local Docker installation is required for deployment. This works on any machine architecture (x86, ARM64) and any OS.
 
-**Expected Duration:** ~10 minutes for initial provisioning + deployment.
+**Expected Duration:** ~10 minutes for initial provisioning + deployment. On the very first run, agent registration may take an extra 1–2 minutes while Azure RBAC propagates the newly assigned Azure AI Developer role (you'll see "Waiting for RBAC propagation" messages — this is normal). Subsequent runs skip this wait.
 
 **⚠️ Deployment Issues:** If you encounter errors or timeouts, check the [Troubleshooting Guide](./troubleshooting.md) for detailed error solutions.
 
