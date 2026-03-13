@@ -1,4 +1,4 @@
-# Prior Authorization Review — Multi-Agent Solution Accelerator
+# Prior Authorization Multi-Agent Solution Accelerator
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 &nbsp;[![Azure](https://img.shields.io/badge/Azure-Deployable-blue?logo=microsoftazure)](https://azure.microsoft.com)
