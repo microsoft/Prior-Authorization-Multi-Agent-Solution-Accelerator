@@ -4,7 +4,9 @@
 &nbsp;[![Azure](https://img.shields.io/badge/Azure-Deployable-blue?logo=microsoftazure)](https://azure.microsoft.com)
 &nbsp;[![Agent Framework](https://img.shields.io/badge/Microsoft-Agent%20Framework-purple)](https://learn.microsoft.com/agent-framework/)
 
-A multi-agent AI-assisted prior authorization (PA) review application built with **Microsoft Foundry**, the **Microsoft Agent Framework (MAF)**, **Azure Container Apps**, and **MCP healthcare data servers**. Four specialized agents — Compliance, Clinical Reviewer, Coverage, and Synthesis — are each packaged as independent **Foundry Hosted Agents** using the native MAF `from_agent_framework` pattern. They work in parallel and sequence, coordinated by a FastAPI orchestrator that applies a gate-based decision rubric and produces a final recommendation with confidence scoring and an audit justification document.
+Built for **health plan payers** — insurers, managed care organizations, and utilization review teams — this multi-agent AI solution accelerates prior authorization (PA) intake, clinical review, coverage determination, and decision synthesis. It automates the payer-side workflow of receiving PA requests from providers, evaluating medical necessity against coverage policies, and producing auditable approve/pend recommendations with full compliance documentation.
+
+The application is built with **Microsoft Foundry**, the **Microsoft Agent Framework (MAF)**, **Azure Container Apps**, and **MCP healthcare data servers**. Four specialized agents — Compliance, Clinical Reviewer, Coverage, and Synthesis — are each packaged as independent **Foundry Hosted Agents** using the native MAF `from_agent_framework` pattern. They work in parallel and sequence, coordinated by a FastAPI orchestrator that applies a gate-based decision rubric and produces a final recommendation with confidence scoring and an audit justification document.
 
 The solution supports **two runtime modes**:
 
