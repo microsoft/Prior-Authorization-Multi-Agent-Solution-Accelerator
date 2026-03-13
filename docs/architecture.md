@@ -111,9 +111,12 @@ MCP tools are created per-agent in each container's `main.py`:
 # agents/clinical/main.py
 
 import httpx
-from azure.ai.agentserver.agentframework import MCPStreamableHTTPTool
+from agent_framework import MCPStreamableHTTPTool
 
-_MCP_HTTP_CLIENT = httpx.AsyncClient(headers={"User-Agent": "claude-code/1.0"})
+_MCP_HTTP_CLIENT = httpx.AsyncClient(
+    headers={"User-Agent": "claude-code/1.0"},
+    timeout=httpx.Timeout(60.0),
+)
 
 icd10_tool = MCPStreamableHTTPTool(
     name="icd10-codes",
@@ -329,10 +332,10 @@ from_agent_framework(agent).run()   — Exposes POST /responses; agent calls too
 ## Skills-Based Architecture
 
 Agent behaviors are defined in SKILL.md files — domain experts can update clinical rules without code changes.
-SKILL.md files live alongside each agent container and are loaded at startup via MAF `FileAgentSkillsProvider`:
+SKILL.md files live alongside each agent container and are loaded at startup via MAF `SkillsProvider`:
 
 ```python
-skills_provider = FileAgentSkillsProvider(
+skills_provider = SkillsProvider(
     skill_paths=str(Path(__file__).parent / "skills")
 )
 ```

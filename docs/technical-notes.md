@@ -35,7 +35,10 @@ to CloudFront routing rules. This is injected in each agent container via a
 single shared `httpx.AsyncClient`:
 
 ```python
-_MCP_HTTP_CLIENT = httpx.AsyncClient(headers={"User-Agent": "claude-code/1.0"})
+_MCP_HTTP_CLIENT = httpx.AsyncClient(
+    headers={"User-Agent": "claude-code/1.0"},
+    timeout=httpx.Timeout(60.0),
+)
 
 icd10_tool = MCPStreamableHTTPTool(
     name="icd10-codes",
@@ -51,10 +54,10 @@ The containers connect directly to the MCP server URLs via environment variables
 
 ## Agent Skills
 
-Each agent loads its SKILL.md via `FileAgentSkillsProvider`:
+Each agent loads its SKILL.md via `SkillsProvider`:
 
 ```python
-skills_provider = FileAgentSkillsProvider(
+skills_provider = SkillsProvider(
     skill_paths=str(Path(__file__).parent / "skills")
 )
 ```
@@ -103,7 +106,7 @@ The Pydantic models live in each agent container:
 | Clinical | `agents/clinical/schemas.py` | `ClinicalResult` |
 | Compliance | `agents/compliance/schemas.py` | `ComplianceResult` |
 | Coverage | `agents/coverage/schemas.py` | `CoverageResult` |
-| Synthesis | `agents/synthesis/schemas.py` | `SynthesisOutput` (includes `synthesis_audit_trail: dict` with `gate_results` and `confidence_components`) |
+| Synthesis | `agents/synthesis/schemas.py` | `SynthesisOutput` (includes `synthesis_audit_trail: str` — JSON-encoded audit trail with `gate_results` and `confidence_components`; parsed back to `dict` by the orchestrator) |
 
 ---
 
@@ -278,10 +281,10 @@ observability blocks are no-ops so the app runs without App Insights.
 
 | Agent | Variable | Default |
 |-------|----------|---------| 
-| Clinical | `HOSTED_AGENT_CLINICAL_URL` | `http://agent-clinical:8000` |
-| Compliance | `HOSTED_AGENT_COMPLIANCE_URL` | `http://agent-compliance:8000` |
-| Coverage | `HOSTED_AGENT_COVERAGE_URL` | `http://agent-coverage:8000` |
-| Synthesis | `HOSTED_AGENT_SYNTHESIS_URL` | `http://agent-synthesis:8000` |
+| Clinical | `HOSTED_AGENT_CLINICAL_URL` | `http://agent-clinical:8088` |
+| Compliance | `HOSTED_AGENT_COMPLIANCE_URL` | `http://agent-compliance:8088` |
+| Coverage | `HOSTED_AGENT_COVERAGE_URL` | `http://agent-coverage:8088` |
+| Synthesis | `HOSTED_AGENT_SYNTHESIS_URL` | `http://agent-synthesis:8088` |
 
 Shared: `HOSTED_AGENT_TIMEOUT_SECONDS` (default `180`).
 
@@ -304,8 +307,9 @@ The following RBAC roles are automatically assigned during `azd up`:
 | Cognitive Services OpenAI User | Backend Container App managed identity | Foundry account | `role-assignments.bicep` (provision) | Orchestrator calls Foundry Responses API with `agent_reference` routing |
 | AcrPull | Foundry project managed identity | Container Registry | `role-assignments.bicep` (provision) | Foundry Agent Service pulls agent container images from ACR |
 | Azure AI User | Deployer (user running `azd up`) | Foundry project | `az role assignment create` (postprovision hook) | `register_agents.py` registers agents via Foundry Agent Service API |
+| Azure AI User | Backend Container App managed identity | Foundry project | `az role assignment create` (postprovision hook) | Backend calls Foundry Hosted Agents at runtime via `DefaultAzureCredential` |
 
-The first two roles are assigned by `infra/modules/role-assignments.bicep` during `azd provision`. The Azure AI User role is assigned via `az role assignment create` in the postprovision hook — this is intentionally outside Bicep because the CLI command is natively idempotent (no error if the role was previously granted manually).
+The first two roles are assigned by `infra/modules/role-assignments.bicep` during `azd provision`. The Azure AI User roles are assigned via `az role assignment create` in the postprovision hook — this is intentionally outside Bicep because the CLI command is natively idempotent (no error if the role was previously granted manually).
 
 > **First-run note:** Azure RBAC propagation can take up to several minutes after a new role assignment. On the very first `azd up` (when the Azure AI User role is newly created), the postprovision hook automatically retries `register_agents.py` every 10 seconds (up to 12 attempts) until the permission propagates. On subsequent runs the role already exists and no retries are needed.
 

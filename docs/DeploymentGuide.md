@@ -181,10 +181,10 @@ The backend uses `backend/.env` and each MAF agent container reads env vars from
 ```env
 # Hosted agent endpoints
 # Docker Compose: point to the MAF agent services
-HOSTED_AGENT_CLINICAL_URL=http://agent-clinical:8000
-HOSTED_AGENT_COVERAGE_URL=http://agent-coverage:8000
-HOSTED_AGENT_COMPLIANCE_URL=http://agent-compliance:8000
-HOSTED_AGENT_SYNTHESIS_URL=http://agent-synthesis:8000
+HOSTED_AGENT_CLINICAL_URL=http://agent-clinical:8088
+HOSTED_AGENT_COVERAGE_URL=http://agent-coverage:8088
+HOSTED_AGENT_COMPLIANCE_URL=http://agent-compliance:8088
+HOSTED_AGENT_SYNTHESIS_URL=http://agent-synthesis:8088
 HOSTED_AGENT_TIMEOUT_SECONDS=180
 
 # Azure Application Insights (optional — shared by all containers)
@@ -730,10 +730,10 @@ docker compose up --build
 |-------------|---------|----------------------|
 | Frontend | http://localhost:3000 | Application UI loads |
 | Backend (orchestrator) | http://localhost:8000/health | `{"status": "healthy"}` |
-| Clinical Agent | http://localhost:8001/health | `{"status": "healthy"}` |
-| Coverage Agent | http://localhost:8002/health | `{"status": "healthy"}` |
-| Compliance Agent | http://localhost:8003/health | `{"status": "healthy"}` |
-| Synthesis Agent | http://localhost:8004/health | `{"status": "healthy"}` |
+| Clinical Agent | http://localhost:8001/liveness | `{"status": "ok"}` |
+| Coverage Agent | http://localhost:8002/liveness | `{"status": "ok"}` |
+| Compliance Agent | http://localhost:8003/liveness | `{"status": "ok"}` |
+| Synthesis Agent | http://localhost:8004/liveness | `{"status": "ok"}` |
 
 **Container startup order:**
 

@@ -30,7 +30,7 @@ import os
 from pathlib import Path
 
 import httpx
-from agent_framework import FileAgentSkillsProvider, MCPStreamableHTTPTool
+from agent_framework import MCPStreamableHTTPTool, SkillsProvider
 from agent_framework.azure import AzureOpenAIResponsesClient
 from azure.ai.agentserver.agentframework import from_agent_framework
 from azure.identity import DefaultAzureCredential
@@ -41,7 +41,10 @@ from schemas import NewAgentResult
 load_dotenv(override=True)  # override=True required for Foundry-deployed env vars
 
 # DeepSense CloudFront routes on User-Agent — omit this client if no MCP
-_MCP_HTTP_CLIENT = httpx.AsyncClient(headers={"User-Agent": "claude-code/1.0"})
+_MCP_HTTP_CLIENT = httpx.AsyncClient(
+    headers={"User-Agent": "claude-code/1.0"},
+    timeout=httpx.Timeout(60.0),
+)
 
 
 def main() -> None:
@@ -53,7 +56,7 @@ def main() -> None:
         load_prompts=False,
     )  # omit if no MCP
 
-    skills_provider = FileAgentSkillsProvider(
+    skills_provider = SkillsProvider(
         skill_paths=str(Path(__file__).parent / "skills")
     )
 
@@ -81,7 +84,7 @@ Key conventions:
 - Import `AzureOpenAIResponsesClient` from `agent_framework.azure`, **not** from `azure.ai.agentserver`
 - Constructor takes `project_endpoint` + `deployment_name` + `credential=DefaultAzureCredential()` — no API keys
 - `name`, `instructions`, `tools`, `context_providers`, and `default_options` all go on `.as_agent()`, not the constructor
-- `FileAgentSkillsProvider` is passed via `context_providers=[skills_provider]` in `.as_agent()`
+- `SkillsProvider` is passed via `context_providers=[skills_provider]` in `.as_agent()`
 - `MCPStreamableHTTPTool` with a shared `httpx.AsyncClient` injects the `User-Agent` header automatically; `load_prompts=False` prevents the agent server from trying to fetch MCP prompt lists on startup
 - `load_dotenv(override=True)` is required — `override=True` ensures Foundry-injected env vars take precedence
 - `from_agent_framework(agent).run()` exposes the agent as a `POST /responses` HTTP endpoint
@@ -323,7 +326,10 @@ Use `MCPStreamableHTTPTool` from the Agent Framework:
 import httpx
 from agent_framework import MCPStreamableHTTPTool
 
-http_client = httpx.AsyncClient(headers={"User-Agent": "claude-code/1.0"})
+http_client = httpx.AsyncClient(
+    headers={"User-Agent": "claude-code/1.0"},
+    timeout=httpx.Timeout(60.0),
+)
 mcp_tool = MCPStreamableHTTPTool(
     name="npi",
     description="Validate NPI numbers",

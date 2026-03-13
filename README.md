@@ -160,7 +160,7 @@ The orchestrator coordinates four phases with four specialized agents:
 
   - Agent behaviors defined in SKILL.md files — domain experts can update clinical rules without code changes
   - SKILL.md files live alongside each agent container under `agents/<name>/skills/<skill-name>/SKILL.md`
-  - Loaded at agent startup via MAF `FileAgentSkillsProvider` — no backend code changes needed to update clinical rules
+  - Loaded at agent startup via MAF `SkillsProvider` — no backend code changes needed to update clinical rules
   - Compliance skill: 10-item checklist (NCCI bundling + service type classification added as items 9 and 10)
   - Coverage skill: Provider Specialty-Procedure Appropriateness is now a required explicit criterion (Step 1.4)
   - Clinical skill: low-confidence extraction banner when `extraction_confidence < 60%` surfaces directly in the frontend Clinical tab
