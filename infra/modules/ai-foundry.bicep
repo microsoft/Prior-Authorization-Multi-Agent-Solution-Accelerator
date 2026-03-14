@@ -28,7 +28,11 @@ param deploymentName string = 'gpt-5.4'
 @description('Model version to deploy.')
 param modelVersion string = '2026-03-05'
 
-@description('Standard Global capacity in thousands of tokens per minute (default: 100 = 100K TPM)')
+@description('Deployment SKU: DataZoneStandard (data residency within geographic zone) or GlobalStandard (no data residency, wider region availability).')
+@allowed(['DataZoneStandard', 'GlobalStandard'])
+param deploymentSkuName string = 'GlobalStandard'
+
+@description('Capacity in thousands of tokens per minute (default: 100 = 100K TPM)')
 param deploymentCapacityK int = 100
 
 // ── Microsoft Foundry Resource ──────────────────────────────────────────────
@@ -83,15 +87,16 @@ resource appInsightsConnection 'Microsoft.CognitiveServices/accounts/projects/co
     }
   }
 }
-// ── gpt-5.4 Model Deployment (DataZone Standard) ─────────────────────────
-// DataZone Standard = data residency bounded to a geographic zone (US/EU).
-// gpt-5.4 is currently available in East US 2 and Sweden Central only.
-// Region is enforced by the @allowed constraint in main.bicep.
+// ── gpt-5.4 Model Deployment ─────────────────────────────────────────────
+// GlobalStandard  = no data residency guarantee, available in more regions.
+// DataZoneStandard = data residency bounded to a geographic zone (US/EU),
+//                    available in East US 2 only (NOT Sweden Central).
+// Deployment SKU is selected by the user during azd up.
 resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
   name: deploymentName
   parent: foundryAccount
   sku: {
-    name: 'DataZoneStandard'
+    name: deploymentSkuName
     capacity: deploymentCapacityK
   }
   properties: {

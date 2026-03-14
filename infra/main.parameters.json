@@ -11,6 +11,9 @@
     "azureOpenAIDeploymentName": {
       "value": "${AZURE_OPENAI_DEPLOYMENT_NAME}"
     },
+    "deploymentSkuName": {
+      "value": "${AZURE_OPENAI_DEPLOYMENT_SKU}"
+    },
     "imagesBuilt": {
       "value": "${IMAGES_BUILT}"
     }
