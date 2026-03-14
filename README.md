@@ -325,6 +325,7 @@ Check out related solution accelerators from Microsoft
 | Solution Accelerator | Description |
 |---|---|
 | [Multi-Agent Custom Automation Engine](https://github.com/microsoft/Multi-Agent-Custom-Automation-Engine-Solution-Accelerator) | Build AI-driven orchestration systems that coordinate multiple specialized agents for complex business process automation |
+| [AutoAuth](https://github.com/microsoft/autoauth) | Streamlining prior authorization with the AutoAuth Framework and Azure AI |
 | [Document Knowledge Mining](https://github.com/microsoft/Document-Knowledge-Mining-Solution-Accelerator) | Extract structured information from unstructured documents using AI — applicable to clinical notes and medical records |
 | [Conversation Knowledge Mining](https://github.com/microsoft/Conversation-Knowledge-Mining-Solution-Accelerator) | Derive insights from volumes of conversational data using generative AI — applicable to patient-provider interactions |
 
