@@ -15,7 +15,7 @@ targetScope = 'subscription'
 param environmentName string
 
 @minLength(1)
-@description('Primary location for all resources. gpt-5.4 (DataZone Standard) is currently available in East US 2 and Sweden Central only.')
+@description('Primary location for all resources. gpt-5.4 GlobalStandard is available in East US 2 and Sweden Central. DataZoneStandard is available in East US 2 only.')
 @allowed([
   'eastus2'
   'swedencentral'
@@ -24,6 +24,10 @@ param location string
 
 @description('Azure OpenAI deployment name to use across all agent containers (e.g., gpt-5.4)')
 param azureOpenAIDeploymentName string = 'gpt-5.4'
+
+@description('Deployment SKU: GlobalStandard (default, wider region support) or DataZoneStandard (data residency, East US 2 only).')
+@allowed(['GlobalStandard', 'DataZoneStandard'])
+param deploymentSkuName string = 'GlobalStandard'
 
 @description('Whether container images have been built to ACR (set automatically by postprovision hook)')
 param imagesBuilt string = ''
@@ -99,6 +103,7 @@ module aiFoundry './modules/ai-foundry.bicep' = {
     appInsightsInstrumentationKey: monitoring.outputs.appInsightsInstrumentationKey
     appInsightsResourceId: monitoring.outputs.appInsightsResourceId
     deploymentName: azureOpenAIDeploymentName
+    deploymentSkuName: deploymentSkuName
   }
 }
 

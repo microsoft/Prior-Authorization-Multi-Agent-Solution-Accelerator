@@ -20,13 +20,50 @@ hooks:
           Write-Host " You selected region: $region" -ForegroundColor Yellow
           Write-Host ""
           Write-Host " gpt-5.4 is currently only available in:" -ForegroundColor White
-          Write-Host "   - East US 2      (eastus2)" -ForegroundColor Cyan
-          Write-Host "   - Sweden Central (swedencentral)" -ForegroundColor Cyan
+          Write-Host "   - East US 2      (eastus2)  - GlobalStandard + DataZoneStandard" -ForegroundColor Cyan
+          Write-Host "   - Sweden Central (swedencentral) - GlobalStandard only" -ForegroundColor Cyan
           Write-Host ""
           Write-Host " Please change region with: azd env set AZURE_LOCATION eastus2" -ForegroundColor White
           Write-Host ""
           exit 1
         }
+
+        # ── Deployment SKU Selection ─────────────────────────────────
+        $sku = azd env get-value AZURE_OPENAI_DEPLOYMENT_SKU 2>$null
+        if (-not $sku) {
+          Write-Host ""
+          Write-Host "===============================================================" -ForegroundColor Yellow
+          Write-Host " SELECT GPT-5.4 DEPLOYMENT TYPE" -ForegroundColor Green
+          Write-Host "===============================================================" -ForegroundColor Yellow
+          Write-Host ""
+          Write-Host " 1. GlobalStandard  - No data residency guarantee, available in all supported regions" -ForegroundColor Cyan
+          Write-Host " 2. DataZoneStandard - Data stays within geographic zone (US/EU), East US 2 only" -ForegroundColor Cyan
+          Write-Host ""
+          $choice = Read-Host " Enter choice [1 or 2] (default: 1)"
+          if ($choice -eq "2") {
+            $sku = "DataZoneStandard"
+          } else {
+            $sku = "GlobalStandard"
+          }
+          azd env set AZURE_OPENAI_DEPLOYMENT_SKU $sku
+          Write-Host "   [OK] Deployment SKU set to: $sku" -ForegroundColor Green
+        }
+
+        # ── DataZone + Sweden Central Conflict ───────────────────────
+        if ($sku -eq "DataZoneStandard" -and $region -eq "swedencentral") {
+          Write-Host ""
+          Write-Host "===============================================================" -ForegroundColor Red
+          Write-Host " INCOMPATIBLE CONFIGURATION" -ForegroundColor Red
+          Write-Host "===============================================================" -ForegroundColor Red
+          Write-Host ""
+          Write-Host " DataZoneStandard is NOT available in Sweden Central." -ForegroundColor Yellow
+          Write-Host " Options:" -ForegroundColor White
+          Write-Host "   1. Switch to East US 2:    azd env set AZURE_LOCATION eastus2" -ForegroundColor Cyan
+          Write-Host "   2. Switch to GlobalStandard: azd env set AZURE_OPENAI_DEPLOYMENT_SKU GlobalStandard" -ForegroundColor Cyan
+          Write-Host ""
+          exit 1
+        }
+
         if ($region) {
           Write-Host ""
           Write-Host "===============================================================" -ForegroundColor Yellow
@@ -311,9 +348,52 @@ hooks:
           printf "${Red}===============================================================${NC}\n\n"
           printf "${Yellow} You selected region: %s${NC}\n\n" "$REGION"
           printf "${White} gpt-5.4 is currently only available in:${NC}\n"
-          printf "${Cyan}   - East US 2      (eastus2)${NC}\n"
-          printf "${Cyan}   - Sweden Central (swedencentral)${NC}\n\n"
+          printf "${Cyan}   - East US 2      (eastus2)  - GlobalStandard + DataZoneStandard${NC}\n"
+          printf "${Cyan}   - Sweden Central (swedencentral) - GlobalStandard only${NC}\n\n"
           printf "${White} Please change region with: azd env set AZURE_LOCATION eastus2${NC}\n\n"
+          exit 1
+        fi
+
+        # ── Deployment SKU Selection ─────────────────────────────────
+        SKU=$(azd env get-value AZURE_OPENAI_DEPLOYMENT_SKU 2>/dev/null)
+        if [ -z "$SKU" ]; then
+          Green='\033[0;32m'
+          Yellow='\033[1;33m'
+          Cyan='\033[0;36m'
+          White='\033[1;37m'
+          NC='\033[0m'
+          printf "\n"
+          printf "${Yellow}===============================================================\n"
+          printf "${Green} SELECT GPT-5.4 DEPLOYMENT TYPE\n"
+          printf "${Yellow}===============================================================${NC}\n\n"
+          printf "${Cyan} 1. GlobalStandard  - No data residency guarantee, available in all supported regions${NC}\n"
+          printf "${Cyan} 2. DataZoneStandard - Data stays within geographic zone (US/EU), East US 2 only${NC}\n\n"
+          printf "${White} Enter choice [1 or 2] (default: 1): ${NC}"
+          read -r CHOICE
+          if [ "$CHOICE" = "2" ]; then
+            SKU="DataZoneStandard"
+          else
+            SKU="GlobalStandard"
+          fi
+          azd env set AZURE_OPENAI_DEPLOYMENT_SKU "$SKU"
+          printf "${Green}   [OK] Deployment SKU set to: %s${NC}\n" "$SKU"
+        fi
+
+        # ── DataZone + Sweden Central Conflict ───────────────────────
+        if [ "$SKU" = "DataZoneStandard" ] && [ "$REGION" = "swedencentral" ]; then
+          Red='\033[0;31m'
+          Yellow='\033[1;33m'
+          Cyan='\033[0;36m'
+          White='\033[1;37m'
+          NC='\033[0m'
+          printf "\n"
+          printf "${Red}===============================================================\n"
+          printf "${Red} INCOMPATIBLE CONFIGURATION\n"
+          printf "${Red}===============================================================${NC}\n\n"
+          printf "${Yellow} DataZoneStandard is NOT available in Sweden Central.${NC}\n"
+          printf "${White} Options:${NC}\n"
+          printf "${Cyan}   1. Switch to East US 2:    azd env set AZURE_LOCATION eastus2${NC}\n"
+          printf "${Cyan}   2. Switch to GlobalStandard: azd env set AZURE_OPENAI_DEPLOYMENT_SKU GlobalStandard${NC}\n\n"
           exit 1
         fi
 

@@ -187,14 +187,21 @@ Follow the quick deploy steps on the deployment guide to deploy this solution to
 > The **Quick Deploy** path described below uses `azd up` → Foundry Hosted Agent mode.
 
 > [!WARNING]
-> **Check Azure OpenAI Quota Availability** — To ensure the **gpt-5.4** model is available in your target region, please check the [model availability instructions](./docs/DeploymentGuide.md#13-model-access-pre-check) before you deploy the solution.
+> **Check Azure OpenAI Quota Availability** — To ensure the **gpt-5.4** model is available in your target region and deployment type (GlobalStandard or DataZoneStandard), please check the [model availability instructions](./docs/DeploymentGuide.md#13-model-access-pre-check) before you deploy the solution.
 
 ### Prerequisites and costs
 
 To deploy this solution accelerator, ensure you have access to an [Azure subscription](https://azure.microsoft.com/free/) with the necessary permissions to create resource groups and resources. The **Microsoft Foundry Resource and Project** are automatically provisioned by `azd up`. The solution uses the **Azure OpenAI gpt-5.4** model, which is automatically deployed as part of `azd up` — see [Azure OpenAI model availability](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models) for details.
 
 > [!WARNING]
-> **Region requirement:** gpt-5.4 (DataZone Standard) is currently available in **East US 2** (`eastus2`) and **Sweden Central** (`swedencentral`) only. Select one of these regions when prompted during `azd up`. See [Azure OpenAI model availability](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models) for the latest availability.
+> **Region and deployment type:** gpt-5.4 is available in **East US 2** (`eastus2`) and **Sweden Central** (`swedencentral`). During `azd up`, you will be prompted to choose a deployment type:
+>
+> | Deployment Type | Data Residency | Regions |
+> |----------------|---------------|---------|
+> | **GlobalStandard** (default) | No guarantee — data may be processed in any region | East US 2, Sweden Central |
+> | **DataZoneStandard** | Data stays within geographic zone (US/EU) | East US 2 **only** |
+>
+> **Sweden Central does NOT support DataZoneStandard.** If you need data residency, select East US 2. See [Azure OpenAI model availability](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models) for the latest availability.
 
 Pricing varies per region and usage, so it isn't possible to predict exact costs for your usage. The majority of the Azure resources used in this infrastructure are on usage-based pricing tiers. Use the [Azure pricing calculator](https://azure.microsoft.com/en-us/pricing/calculator) to estimate costs for your subscription.
 
