@@ -39,52 +39,6 @@ Decision policy and evaluation methodology adapted from the [Anthropic prior-aut
 
 This solution leverages **Microsoft Foundry**, the **Microsoft Agent Framework (MAF)**, **Azure Application Insights**, and **MCP healthcare data servers** to create an intelligent prior authorization review pipeline where four specialized AI agents work together to validate, assess, and synthesize PA decisions with full audit transparency and native OpenTelemetry tracing. Each specialist agent is independently containerized and deployed as a Foundry Hosted Agent, while the FastAPI orchestrator and Next.js frontend run in Azure Container Apps.
 
-### Project structure
-
-```
-prior-auth-maf/
-├── backend/               # FastAPI orchestrator — SSE streaming, review dashboard, audit PDF
-│   ├── app/
-│   │   ├── agents/        # HTTP dispatchers to hosted agent containers + orchestrator
-│   │   ├── routers/       # /review, /decision, /agents endpoints
-│   │   ├── services/      # hosted_agents.py HTTP dispatch, audit_pdf.py, cpt_validation.py, notification.py
-│   │   └── models/        # Pydantic schemas (schemas.py)
-│   └── Dockerfile
-│
-├── agents/                # Four independent MAF Hosted Agent deployable units
-│   ├── clinical/          # ICD-10, PubMed, Clinical Trials MCP — port 8001
-│   │   ├── main.py        # from_agent_framework entry point + structured output via default_options
-│   │   ├── schemas.py     # Pydantic output model (ClinicalResult)
-│   │   ├── Dockerfile
-│   │   ├── agent.yaml     # Foundry Hosted Agent descriptor
-│   │   └── skills/clinical-review/SKILL.md
-│   ├── coverage/          # NPI Registry, CMS Coverage MCP — port 8002
-│   │   ├── main.py
-│   │   ├── schemas.py     # Pydantic output model (CoverageResult)
-│   │   ├── Dockerfile
-│   │   ├── agent.yaml
-│   │   └── skills/coverage-assessment/SKILL.md
-│   ├── compliance/        # No MCP tools — pure reasoning — port 8003
-│   │   ├── main.py
-│   │   ├── schemas.py     # Pydantic output model (ComplianceResult)
-│   │   ├── Dockerfile
-│   │   ├── agent.yaml
-│   │   └── skills/compliance-review/SKILL.md
-│   └── synthesis/         # No MCP tools — gate-based synthesis — port 8004
-│       ├── main.py
-│       ├── schemas.py     # Pydantic output model (SynthesisOutput)
-│       ├── Dockerfile
-│       ├── agent.yaml
-│       └── skills/synthesis-decision/SKILL.md
-│
-├── frontend/              # Next.js UI
-├── scripts/               # Post-provision helpers
-│   └── register_agents.py # Registers all 4 agents with Foundry Hosted Agents
-├── docs/                  # Architecture, deployment guide, API reference
-├── infra/                 # Bicep / azd infrastructure
-└── docker-compose.yml     # Local: backend + 4 agents + frontend
-```
-
 ### Solution architecture
 
 |![Solution Architecture](./docs/images/readme/solution-architecture.svg)|

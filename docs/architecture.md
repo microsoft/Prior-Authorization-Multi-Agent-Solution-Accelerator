@@ -41,6 +41,52 @@ The application uses a **pure HTTP dispatch** architecture. The FastAPI backend 
 └───────────────────────────────────────────────────────────────┘
 ```
 
+## Project Structure
+
+```
+prior-auth-maf/
+├── backend/               # FastAPI orchestrator — SSE streaming, review dashboard, audit PDF
+│   ├── app/
+│   │   ├── agents/        # HTTP dispatchers to hosted agent containers + orchestrator
+│   │   ├── routers/       # /review, /decision, /agents endpoints
+│   │   ├── services/      # hosted_agents.py HTTP dispatch, audit_pdf.py, cpt_validation.py, notification.py
+│   │   └── models/        # Pydantic schemas (schemas.py)
+│   └── Dockerfile
+│
+├── agents/                # Four independent MAF Hosted Agent deployable units
+│   ├── clinical/          # ICD-10, PubMed, Clinical Trials MCP — port 8001
+│   │   ├── main.py        # from_agent_framework entry point + structured output via default_options
+│   │   ├── schemas.py     # Pydantic output model (ClinicalResult)
+│   │   ├── Dockerfile
+│   │   ├── agent.yaml     # Foundry Hosted Agent descriptor
+│   │   └── skills/clinical-review/SKILL.md
+│   ├── coverage/          # NPI Registry, CMS Coverage MCP — port 8002
+│   │   ├── main.py
+│   │   ├── schemas.py     # Pydantic output model (CoverageResult)
+│   │   ├── Dockerfile
+│   │   ├── agent.yaml
+│   │   └── skills/coverage-assessment/SKILL.md
+│   ├── compliance/        # No MCP tools — pure reasoning — port 8003
+│   │   ├── main.py
+│   │   ├── schemas.py     # Pydantic output model (ComplianceResult)
+│   │   ├── Dockerfile
+│   │   ├── agent.yaml
+│   │   └── skills/compliance-review/SKILL.md
+│   └── synthesis/         # No MCP tools — gate-based synthesis — port 8004
+│       ├── main.py
+│       ├── schemas.py     # Pydantic output model (SynthesisOutput)
+│       ├── Dockerfile
+│       ├── agent.yaml
+│       └── skills/synthesis-decision/SKILL.md
+│
+├── frontend/              # Next.js UI
+├── scripts/               # Post-provision helpers
+│   └── register_agents.py # Registers all 4 agents with Foundry Hosted Agents
+├── docs/                  # Architecture, deployment guide, API reference
+├── infra/                 # Bicep / azd infrastructure
+└── docker-compose.yml     # Local: backend + 4 agents + frontend
+```
+
 ## How It Works
 
 ![Prior Authorization Review — Application Interface](./images/readme/interface.png)
