@@ -189,6 +189,9 @@ Follow the quick deploy steps on the deployment guide to deploy this solution to
 > [!WARNING]
 > **Check Azure OpenAI Quota Availability** — To ensure the **gpt-5.4** model is available in your target region and deployment type (GlobalStandard or DataZoneStandard), please check the [model availability instructions](./docs/DeploymentGuide.md#13-model-access-pre-check) before you deploy the solution.
 
+> [!IMPORTANT]
+> **Model access required:** GPT-5.4 requires a separate access request before it can be deployed. [Apply for access here](https://aka.ms/OAI/gpt53codexaccess). Deployment will fail if access has not been granted to your subscription.
+
 ### Prerequisites and costs
 
 To deploy this solution accelerator, ensure you have access to an [Azure subscription](https://azure.microsoft.com/free/) with the necessary permissions to create resource groups and resources. The **Microsoft Foundry Resource and Project** are automatically provisioned by `azd up`. The solution uses the **Azure OpenAI gpt-5.4** model, which is automatically deployed as part of `azd up` — see [Azure OpenAI model availability](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models) for details.
