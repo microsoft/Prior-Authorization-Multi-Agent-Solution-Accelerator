@@ -43,11 +43,15 @@ fi
 echo "Upgrading Azure CLI to latest..."
 # Remove stale Yarn repo that blocks apt-get update (expired GPG key)
 sudo rm -f /etc/apt/sources.list.d/yarn.list 2>/dev/null
+# Remove any prior CLI install to avoid Python package conflicts (e.g. azure-core)
+sudo apt-get remove -y azure-cli 2>/dev/null || true
+sudo apt-get autoremove -y 2>/dev/null || true
+# Clean install of latest Azure CLI
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 echo "az CLI version: $(az version --query '"azure-cli"' -o tsv)"
 
 echo "Installing Azure CLI extensions..."
-az extension add --name containerapp --yes 2>/dev/null || echo "⚠️ containerapp extension install skipped"
+az extension add --name containerapp --upgrade --yes 2>/dev/null || echo "⚠️ containerapp extension install skipped"
 
 echo "Setting up Backend..."
 cd ./backend
