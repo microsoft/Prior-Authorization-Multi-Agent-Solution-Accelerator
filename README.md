@@ -169,6 +169,8 @@ The orchestrator coordinates four phases with four specialized agents:
 Follow the quick deploy steps on the deployment guide to deploy this solution to your own Azure subscription.
 
 > [!IMPORTANT]
+> **Model access required:** GPT-5.4 requires a separate access request before it can be deployed. [Apply for access here](https://aka.ms/OAI/gpt53codexaccess). Deployment will fail if access has not been granted to your subscription.
+>
 > This solution accelerator requires **Azure Developer CLI (azd) version 1.18.0 or higher** for Azure deployment. Please ensure you have the latest version installed before proceeding. [Download azd here](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd).
 
 [Click here to launch the deployment guide](./docs/DeploymentGuide.md)
@@ -185,9 +187,6 @@ Follow the quick deploy steps on the deployment guide to deploy this solution to
 > | **Run everything locally** | `docker compose up` | **Docker Compose mode** — all 4 agent containers + backend + frontend run on your local machine; no Azure deployment needed |
 >
 > The **Quick Deploy** path described below uses `azd up` → Foundry Hosted Agent mode.
-
-> [!IMPORTANT]
-> **Model access required:** GPT-5.4 requires a separate access request before it can be deployed. [Apply for access here](https://aka.ms/OAI/gpt53codexaccess). Deployment will fail if access has not been granted to your subscription.
 
 ### Prerequisites and costs
 
