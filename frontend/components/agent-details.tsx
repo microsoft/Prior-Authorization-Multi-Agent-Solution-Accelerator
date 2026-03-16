@@ -827,13 +827,24 @@ interface SynthesisData {
 type GateStatus = "pass" | "fail" | "na";
 
 function getGateStatuses(decisionGate: string): [GateStatus, GateStatus, GateStatus] {
+  // Exact match first
   switch (decisionGate) {
     case "approved":           return ["pass", "pass", "pass"];
     case "gate_1_provider":    return ["fail", "na",   "na"];
     case "gate_2_codes":       return ["pass", "fail", "na"];
     case "gate_3_necessity":   return ["pass", "pass", "fail"];
-    default:                   return ["na",   "na",   "na"];
   }
+  // Fuzzy match for free-text responses from the agent
+  const lower = decisionGate.toLowerCase();
+  if (lower.includes("approved") || lower.includes("all gates pass"))
+    return ["pass", "pass", "pass"];
+  if (lower.includes("gate 1") || lower.includes("provider"))
+    return ["fail", "na", "na"];
+  if (lower.includes("gate 2") || lower.includes("code"))
+    return ["pass", "fail", "na"];
+  if (lower.includes("gate 3") || lower.includes("necessity") || lower.includes("insufficient"))
+    return ["pass", "pass", "fail"];
+  return ["na", "na", "na"];
 }
 
 const GATES = [

@@ -4,6 +4,7 @@ Kept in sync with backend/app/models/schemas.py.
 Used as response_format for MAF structured output — guarantees the
 agent emits valid JSON matching this model on every call.
 """
+from typing import Literal
 from pydantic import BaseModel
 
 
@@ -13,7 +14,7 @@ class SynthesisOutput(BaseModel):
     confidence_level: str = ""  # "HIGH", "MEDIUM", "LOW"
     summary: str = ""
     clinical_rationale: str = ""
-    decision_gate: str = ""  # "gate_1_provider", "gate_2_codes", "gate_3_necessity", "approved"
+    decision_gate: Literal["gate_1_provider", "gate_2_codes", "gate_3_necessity", "approved"] = "gate_3_necessity"
     coverage_criteria_met: list[str] = []
     coverage_criteria_not_met: list[str] = []
     missing_documentation: list[str] = []
