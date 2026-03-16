@@ -715,8 +715,9 @@ hooks:
             python -m pip install "azure-ai-projects>=2.0.0" --quiet
         }
         $deploymentName = azd env get-value AZURE_OPENAI_DEPLOYMENT_NAME 2>$null
-        if (-not $deploymentName) { $deploymentName = "gpt-5.4" }
+        if (-not $deploymentName -or $deploymentName -match "ERROR") { $deploymentName = "gpt-5.4" }
         $appInsightsCs = azd env get-value APPLICATION_INSIGHTS_CONNECTION_STRING 2>$null
+        if ($appInsightsCs -match "ERROR") { $appInsightsCs = "" }
         $env:AZURE_AI_PROJECT_ENDPOINT = $projectEndpoint
         $env:AZURE_CONTAINER_REGISTRY_ENDPOINT = $acrEndpoint
         $env:AI_FOUNDRY_ACCOUNT_NAME = $foundryAccountName
@@ -861,8 +862,11 @@ hooks:
             printf "${White}  Installing azure-ai-projects...${NC}\n"
             python -m pip install "azure-ai-projects>=2.0.0" --quiet
         fi
-        DEPLOYMENT_NAME=$(azd env get-value AZURE_OPENAI_DEPLOYMENT_NAME 2>/dev/null || echo "gpt-5.4")
+        DEPLOYMENT_NAME=$(azd env get-value AZURE_OPENAI_DEPLOYMENT_NAME 2>/dev/null || true)
+        # azd env get-value writes errors to stdout; detect and fall back
+        case "$DEPLOYMENT_NAME" in *ERROR*|"" ) DEPLOYMENT_NAME="gpt-5.4" ;; esac
         APP_INSIGHTS_CS=$(azd env get-value APPLICATION_INSIGHTS_CONNECTION_STRING 2>/dev/null || true)
+        case "$APP_INSIGHTS_CS" in *ERROR* ) APP_INSIGHTS_CS="" ;; esac
         export AZURE_AI_PROJECT_ENDPOINT="$PROJECT_ENDPOINT"
         export AZURE_CONTAINER_REGISTRY_ENDPOINT="$ACR_ENDPOINT"
         export AI_FOUNDRY_ACCOUNT_NAME="$FOUNDRY_ACCOUNT_NAME"

@@ -181,7 +181,7 @@ async def _invoke_foundry_agent(
     # Standard Foundry Responses API format with agent_reference routing
     request_body = {
         "input": [{"type": "message", "role": "user", "content": json.dumps(payload)}],
-        "agent_reference": {"name": foundry_agent_name, "type": "agent_reference"},
+        "agent_reference": {"id": foundry_agent_name, "type": "agent_reference"},
     }
 
     try:
