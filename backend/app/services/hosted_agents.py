@@ -182,16 +182,19 @@ async def _invoke_foundry_agent(
         }
 
     try:
-        # Foundry agent_reference routing requires input as a plain string
-        # (not an array of message objects) for the content to reach the agent
+        # Send input as a structured message array via extra_body to match
+        # the format that from_agent_framework() expects (same as ACA direct HTTP mode).
+        # The SDK input param is set to a placeholder string (required by the SDK),
+        # while extra_body.input overrides it with the proper Responses API envelope.
         response = await asyncio.to_thread(
             openai_client.responses.create,
-            input=json.dumps(payload),
+            input="Process the prior authorization request in the input messages.",
             extra_body={
                 "agent_reference": {
                     "name": foundry_agent_name,
                     "type": "agent_reference",
-                }
+                },
+                "input": [{"type": "message", "role": "user", "content": json.dumps(payload)}],
             },
         )
 
