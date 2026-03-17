@@ -233,7 +233,7 @@ Each agent's execution is fully transparent in the frontend with Checks Summary 
 |----------|-------|
 | **Role** | Clinical data extraction, code validation, confidence scoring, clinical trials search |
 | **MCP Servers** | `icd10-codes`, `pubmed`, `clinical-trials` |
-| **Tools** | `validate_code`, `lookup_code`, `search_codes`, `get_hierarchy`, `get_by_category`, `get_by_body_system`, `search` (PubMed), `search_trials`, `get_trial_details`, `search_by_eligibility`, `search_investigators`, `analyze_endpoints`, `search_by_sponsor` |
+| **Tools** | `validate_code`, `lookup_code`, `search_codes`, `get_hierarchy`, `get_by_category`, `get_by_body_system`, `search_articles` (PubMed), `search_trials`, `get_trial_details`, `search_by_eligibility`, `search_investigators`, `analyze_endpoints`, `search_by_sponsor` |
 | **`max_turns`** | 15 |
 
 **SKILL.md rules:**
@@ -244,7 +244,7 @@ Each agent's execution is fully transparent in the frontend with Checks Summary 
 | 2 | CPT/HCPCS Procedure Code Notation | (orchestrator pre-flight) | Pre-flight results |
 | 3 | Clinical Data Extraction | None (reasoning) | 8 sub-items |
 | 4 | Extraction Confidence Calculation | None (reasoning) | Low-confidence warning if < 60% |
-| 5 | PubMed Literature Search | `search` (PubMed MCP) | Supplementary, non-blocking |
+| 5 | PubMed Literature Search | `search_articles` (PubMed MCP) | Supplementary, non-blocking |
 | 6 | Clinical Trials Search | `search_trials`, `search_by_eligibility` | Supplementary, non-blocking |
 | 7 | Clinical Summary Generation | None (reasoning) | Final structured narrative |
 
@@ -361,7 +361,7 @@ This project consumes **remote MCP servers** from the
 | **ICD-10 Codes** | `mcp.deepsense.ai/icd10_codes/mcp` | Clinical Agent | `validate_code`, `lookup_code`, `search_codes`, `get_hierarchy`, `get_by_category`, `get_by_body_system` |
 | **CMS Coverage** | `mcp.deepsense.ai/cms_coverage/mcp` | Coverage Agent | `search_national_coverage`, `search_local_coverage`, `get_coverage_document`, `get_contractors`, `get_whats_new_report`, `batch_get_ncds`, `sad_exclusion_list` |
 | **Clinical Trials** | `mcp.deepsense.ai/clinical_trials/mcp` | Clinical Agent | `search_trials`, `get_trial_details`, `search_by_eligibility`, `search_investigators`, `analyze_endpoints`, `search_by_sponsor` |
-| **PubMed** | `pubmed.mcp.claude.com/mcp` | Clinical Agent | `search` |
+| **PubMed** | `pubmed.mcp.claude.com/mcp` | Clinical Agent | `search_articles`, `get_article_metadata`, `find_related_articles`, `lookup_article_by_citation`, `convert_article_ids`, `get_full_text_article`, `get_copyright_status` |
 
 ### How MCP Is Integrated
 
