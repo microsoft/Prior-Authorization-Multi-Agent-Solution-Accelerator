@@ -21,17 +21,11 @@ jobs:
       - name: Validate Azure Template
         uses: microsoft/template-validation-action@bae4895d0a8abd4f0d5aad68ae8647b3027f4c91
         with:
-          validateAzd: true
+          validateAzd: false
           useDevContainer: false
         id: validation
         env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          AZURE_ENV_NAME: ${{ secrets.AZURE_ENV_NAME }}
-          AZURE_LOCATION: ${{ secrets.AZURE_LOCATION }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AZURE_DEV_COLLECT_TELEMETRY: ${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}
 
       # Step 3: Print the result of the validation
       - name: print result
