@@ -1,2 +1,0 @@
-[2026-03-16T18:48:25Z] Authentication: AzureDeveloperCLICredential.GetToken() acquired a token for scope "https://ai.azure.com/.default"
-[2026-03-16T18:48:30Z] Authentication: AzureDeveloperCLICredential.GetToken() acquired a token for scope "https://ai.azure.com/.default"
