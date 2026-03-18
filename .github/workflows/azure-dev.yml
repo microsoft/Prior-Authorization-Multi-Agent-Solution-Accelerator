@@ -10,7 +10,6 @@ permissions:
 jobs:
   template_validation_job:
     runs-on: ubuntu-latest
-    environment: production
     name: template validation
     steps:
       # Step 1: Checkout the code from your repository
