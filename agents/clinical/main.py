@@ -26,20 +26,23 @@ load_dotenv(override=True)  # override=True required for Foundry-deployed env va
 
 
 def _patch_trace_agent_id(app, agent_name: str) -> None:
-    """Patch the adapter to populate gen_ai.agent.id in trace spans.
+    """Patch the adapter to populate trace span attributes for Foundry correlation.
 
-    The agentserver adapter (v1.0.0b17) reads gen_ai.agent.id from the
-    incoming request's 'agent' field, but Foundry Agent Service doesn't
-    include that field when forwarding requests to hosted containers.
-    This leaves gen_ai.agent.id empty and Foundry shows Trace ID = '--'.
+    The agentserver adapter (v1.0.0b17) populates agent identity attributes
+    on log records (via CustomDimensionsFilter/get_dimensions) but NOT on
+    OTel spans. The Foundry Traces tab reads from spans, so it can't
+    correlate traces to agents.
 
     This patch wraps AgentRunContextMiddleware.set_run_context_to_context_var
-    to inject the agent name when the request payload lacks an agent reference.
+    to inject both gen_ai.agent.id and the Foundry-injected env var
+    dimensions (AGENT_ID, AGENT_NAME, AGENT_PROJECT_NAME) into the span
+    context so they appear on all spans, not just log records.
     """
     from azure.ai.agentserver.core.server.base import (
         AgentRunContextMiddleware,
         request_context,
     )
+    from azure.ai.agentserver.core.logger import get_dimensions
 
     _original = AgentRunContextMiddleware.set_run_context_to_context_var
 
@@ -49,7 +52,13 @@ def _patch_trace_agent_id(app, agent_name: str) -> None:
         if not ctx.get("gen_ai.agent.id"):
             ctx["gen_ai.agent.id"] = agent_name
             ctx["gen_ai.agent.name"] = agent_name
-            request_context.set(ctx)
+        # Inject Foundry-injected env var dimensions into span context
+        # so they appear on OTel spans (not just log records)
+        dims = get_dimensions()
+        for k, v in dims.items():
+            if k not in ctx:
+                ctx[k] = v
+        request_context.set(ctx)
 
     AgentRunContextMiddleware.set_run_context_to_context_var = _patched
 
