@@ -51,6 +51,7 @@ services:
       - MCP_PUBMED=${MCP_PUBMED:-https://pubmed.mcp.claude.com/mcp}
       - MCP_CLINICAL_TRIALS=${MCP_CLINICAL_TRIALS:-https://mcp.deepsense.ai/clinical_trials/mcp}
       - APPLICATION_INSIGHTS_CONNECTION_STRING=${APPLICATION_INSIGHTS_CONNECTION_STRING:-}
+      - OTEL_RECORD_CONTENT=${OTEL_RECORD_CONTENT:-}  # set to 'true' for debug — records full prompts/tool args in traces
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8088/liveness"]
       interval: 30s
@@ -73,6 +74,7 @@ services:
       - MCP_NPI_REGISTRY=${MCP_NPI_REGISTRY:-https://mcp.deepsense.ai/npi_registry/mcp}
       - MCP_CMS_COVERAGE=${MCP_CMS_COVERAGE:-https://mcp.deepsense.ai/cms_coverage/mcp}
       - APPLICATION_INSIGHTS_CONNECTION_STRING=${APPLICATION_INSIGHTS_CONNECTION_STRING:-}
+      - OTEL_RECORD_CONTENT=${OTEL_RECORD_CONTENT:-}  # set to 'true' for debug — records full prompts/tool args in traces
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8088/liveness"]
       interval: 30s
@@ -93,6 +95,7 @@ services:
       - AZURE_AI_PROJECT_ENDPOINT=${AZURE_AI_PROJECT_ENDPOINT}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-4o-mini}
       - APPLICATION_INSIGHTS_CONNECTION_STRING=${APPLICATION_INSIGHTS_CONNECTION_STRING:-}
+      - OTEL_RECORD_CONTENT=${OTEL_RECORD_CONTENT:-}  # set to 'true' for debug — records full prompts/tool args in traces
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8088/liveness"]
       interval: 30s
@@ -113,6 +116,7 @@ services:
       - AZURE_AI_PROJECT_ENDPOINT=${AZURE_AI_PROJECT_ENDPOINT}
       - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-4o}
       - APPLICATION_INSIGHTS_CONNECTION_STRING=${APPLICATION_INSIGHTS_CONNECTION_STRING:-}
+      - OTEL_RECORD_CONTENT=${OTEL_RECORD_CONTENT:-}  # set to 'true' for debug — records full prompts/tool args in traces
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8088/liveness"]
       interval: 30s

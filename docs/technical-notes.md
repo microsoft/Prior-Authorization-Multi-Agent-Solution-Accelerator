@@ -202,6 +202,41 @@ per the official Foundry tracing sample (`agent_with_foundry_tracing.py`):
 - `enable_performance_counters=False` — Disabled because container environments
   (Foundry Hosted Agents) don't support performance counter collection.
 
+### Content Recording (Sensitive Data)
+
+By default, MAF redacts prompt/response content and tool arguments/results from
+telemetry spans. This protects PHI (Protected Health Information) and other
+sensitive data in production.
+
+To enable full content recording for **development and debugging**:
+
+```env
+OTEL_RECORD_CONTENT=true
+```
+
+When enabled, `enable_instrumentation(enable_sensitive_data=True)` records:
+- Full LLM prompts and responses in `chat` spans
+- Tool call arguments and results in `execute_tool` spans
+- Agent input/output content in `invoke_agent` spans
+
+This is controlled per-agent via the `OTEL_RECORD_CONTENT` environment variable.
+
+> **⚠️ Production warning:** Do NOT set `OTEL_RECORD_CONTENT=true` in production.
+> Prior authorization requests contain PHI (patient names, DOBs, diagnoses,
+> clinical notes). Recording this data in Application Insights telemetry may
+> violate HIPAA and organizational data governance policies. Leave this variable
+> unset (or set to `false`) in production environments.
+
+To enable for a specific agent during debugging, add it to the agent's
+environment variables in `register_agents.py` or the Foundry portal:
+
+```python
+"env": {
+    ...
+    "OTEL_RECORD_CONTENT": "true",  # DEBUG ONLY — remove for production
+}
+```
+
 ### Application Map
 
 Because `OTEL_SERVICE_NAME` is set in every process, App Insights

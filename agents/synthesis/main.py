@@ -44,7 +44,9 @@ def main() -> None:
                 enable_live_metrics=True,
                 enable_performance_counters=False,
             )
-            enable_instrumentation()
+            enable_instrumentation(
+                enable_sensitive_data=os.environ.get("OTEL_RECORD_CONTENT", "").lower() == "true",
+            )
             print("[observability] Azure Monitor + MAF instrumentation enabled for agent-synthesis")
         except Exception as _obs_err:  # best-effort — never crash the agent
             print(f"[observability] WARNING: failed to initialize — {_obs_err}")
