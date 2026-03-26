@@ -36,3 +36,5 @@ nul
 backend/*_result.json
 
 SKILL.md
+docs/blog-post.md
+docs/*.pptx
