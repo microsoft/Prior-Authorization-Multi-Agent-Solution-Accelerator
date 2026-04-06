@@ -51,7 +51,7 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-12-01' = {
   properties: {
     allowProjectManagement: true
     customSubDomainName: 'foundry-${name}'
-    disableLocalAuth: false
+    disableLocalAuth: true
     publicNetworkAccess: 'Enabled'
   }
 }

@@ -26,6 +26,80 @@ Decision policy and evaluation methodology adapted from the [Anthropic prior-aut
 
 ---
 
+<a id="features"></a>
+## Features
+
+- **Multi-agent parallel execution** — Four specialized agents complete a full PA review in under 2 minutes; Compliance and Clinical agents run concurrently via `asyncio.gather`
+- **Foundry Hosted Agents** — Each specialist agent is independently containerized and deployed on Microsoft Foundry; Foundry manages the container lifecycle
+- **Gate-based decision rubric** — Three sequential gates (Provider → Codes → Medical Necessity) with per-criterion MET/NOT_MET/INSUFFICIENT scoring and confidence weighting
+- **MCP-powered data access** — Five remote MCP healthcare data servers: NPI Registry, ICD-10 Codes, CMS Coverage, Clinical Trials (DeepSense), and PubMed
+- **Human-in-the-loop** — AI produces draft recommendations; clinicians Accept or Override with documented rationale; override traceability flows to audit PDF and notification letters
+- **Keyless authentication** — All Azure resource access via `DefaultAzureCredential`; no API keys, passwords, or connection strings stored or rotated
+- **Full audit trail** — 10-item compliance checklist, per-criterion confidence scoring, and an 8-section audit justification document (Markdown + color-coded PDF)
+- **Real-time progress streaming** — SSE-based live updates with a phase timeline and per-agent status cards across all four agent phases
+- **OpenTelemetry observability** — Native Application Insights integration with custom phase spans and semantic attributes
+- **Skills-based architecture** — Agent behaviors defined in `SKILL.md` files; domain experts can update clinical rules without code changes
+- **Two runtime modes** — Deploy to Azure with `azd up` (Foundry Hosted Agents) or run everything locally with `docker compose up`
+
+---
+
+<a id="getting-started"></a>
+## Getting Started
+
+See the [Deployment Guide](./docs/DeploymentGuide.md) for full prerequisites and step-by-step instructions.
+
+**Prerequisites:** Azure subscription · [azd ≥ 1.18.0](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) · Docker · [GPT-5.4 access request](https://aka.ms/OAI/gpt53codexaccess)
+
+```bash
+# Deploy to Azure (recommended — Foundry Hosted Agent mode)
+azd auth login
+azd up
+
+# Or run everything locally (no Azure required)
+docker compose up
+```
+
+> [!IMPORTANT]
+> **Model access required:** GPT-5.4 requires a separate access request before it can be deployed. [Apply for access here](https://aka.ms/OAI/gpt53codexaccess). Deployment will fail if access has not been granted to your subscription.
+
+---
+
+<a id="guidance"></a>
+## Guidance
+
+### Architecture
+
+This solution uses a **stateless dispatcher** pattern: the FastAPI backend has no local AI runtime — all specialist reasoning runs in four independent Foundry Hosted Agent containers. The orchestrator dispatches through the Foundry project endpoint using `agent_reference` routing and `DefaultAzureCredential`. See [Architecture](./docs/architecture.md) for the full design.
+
+### Security
+
+- **Keyless by design** — all Azure resource access uses `DefaultAzureCredential`; no API keys or connection strings are stored anywhere
+- **Managed Identity** — each Container App has a system-assigned managed identity with least-privilege Bicep-assigned role assignments (`CognitiveServicesOpenAIUser`, `Azure AI User`)
+- **Local auth disabled** — the Azure AI Foundry account has `disableLocalAuth: true`, enforcing Entra ID-only access
+- See [Security guidelines](#security-guidelines) below for additional hardening recommendations for production deployments handling PHI
+
+### Responsible AI
+
+This is an **AI-assisted triage tool** — all recommendations are drafts that require human clinical review before any authorization decision is finalized. Coverage policies reflect Medicare LCDs/NCDs only; commercial and Medicare Advantage plans may differ. See [TRANSPARENCY_FAQ.md](./TRANSPARENCY_FAQ.md) for full responsible AI transparency details.
+
+---
+
+<a id="resources"></a>
+## Resources
+
+| Document | Description |
+|----------|-------------|
+| [Deployment Guide](./docs/DeploymentGuide.md) | Step-by-step deployment — Docker Compose, `azd up`, prerequisites, environment configuration, troubleshooting |
+| [Architecture](./docs/architecture.md) | Hosted-agent architecture, runtime modes, MCP integration, agent details, decision rubric, confidence scoring |
+| [API Reference](./docs/api-reference.md) | Full REST API documentation — endpoints, request/response schemas, SSE events, error codes |
+| [Extending](./docs/extending.md) | Add agents, MCP servers, change the decision rubric, customize notification letters |
+| [Technical Notes](./docs/technical-notes.md) | SDK patches, MCP header injection, hosted-agent dispatch, structured output, known limitations |
+| [Troubleshooting](./docs/troubleshooting.md) | Common issues and fixes — CLI failures, auth problems, connection errors, Foundry trace issues |
+| [Production Migration](./docs/production-migration.md) | PostgreSQL schema, Azure Blob Storage layout, migration steps |
+| [TRANSPARENCY_FAQ.md](./TRANSPARENCY_FAQ.md) | Responsible AI transparency details |
+
+---
+
 <a id="solution-overview"></a>
 ## <img src="./docs/images/readme/solution-overview.svg" width="48" /> Solution overview
 
