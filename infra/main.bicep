@@ -51,10 +51,10 @@ var tags = {
 
 // ── Resource Group ──────────────────────────────────────────────────────────
 
-resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
-  name: '${abbrs.resourcesResourceGroups}${environmentName}'
-  location: location
-  tags: tags
+@description('Name of existing resource group')
+param existingResourceGroupName string
+resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' existing = {
+  name: existingResourceGroupName
 }
 
 // ── Container Registry ──────────────────────────────────────────────────────
