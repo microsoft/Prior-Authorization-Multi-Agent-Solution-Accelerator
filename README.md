@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/microsoft-prior-authorization-multi-agent-solution-accelerator-badge.png)](https://mseep.ai/app/microsoft-prior-authorization-multi-agent-solution-accelerator)
+
 # Prior Authorization Multi-Agent Solution Accelerator
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
