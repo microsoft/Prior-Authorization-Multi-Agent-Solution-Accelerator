@@ -2,7 +2,7 @@
 // Prior Auth MAF — Main Bicep template
 // Deploys: Resource Group, Microsoft Foundry (Resource + Project), Container Registry,
 //          Container Apps Environment, Backend + 4 Agent + Frontend Container Apps,
-//          Log Analytics, App Insights, Role Assignments (Cognitive Services OpenAI User, Azure AI User; deployer also receives Azure AI Project Manager via postprovision hook)
+//          Log Analytics, App Insights, Role Assignments (Cognitive Services OpenAI User, Foundry User; deployer also receives Foundry Project Manager via postprovision hook)
 // ---------------------------------------------------------------------------
 
 targetScope = 'subscription'
@@ -154,7 +154,7 @@ module backend './modules/container-app.bicep' = {
 // Backend → CognitiveServicesOpenAIUser on Foundry (per-agent dedicated endpoints)
 // Backend + Frontend → AcrPull on ACR (image pull via system-assigned MI)
 // Foundry project identity → AcrPull on ACR (agent image pull for hosted agents)
-// Deployer → Azure AI User + Azure AI Project Manager are assigned via `az role assignment create` in postprovision hook (idempotent).
+// Deployer → Foundry User + Foundry Project Manager are assigned via `az role assignment create` in postprovision hook (idempotent).
 // Project Manager is required by the refreshed Hosted Agents preview to call create_version() on HostedAgentDefinition / PromptAgentDefinition.
 
 module roleAssignments './modules/role-assignments.bicep' = {
@@ -203,8 +203,12 @@ output AI_FOUNDRY_PROJECT_ENDPOINT string = aiFoundry.outputs.projectEndpoint
 output AI_FOUNDRY_PORTAL_URL string = aiFoundry.outputs.portalUrl
 // Required by `azd ai agent` extension (azd deploy of host: azure.ai.agent
 // services) so it can target the Foundry project that owns the agents.
+// FOUNDRY_PROJECT_ENDPOINT is the exact name the extension looks up — the
+// AI_FOUNDRY_* / AZURE_AI_* aliases below are consumed by this repo's own
+// hooks, backend and agent.yaml files.
 output AZURE_AI_PROJECT_ID string = aiFoundry.outputs.projectId
 output AZURE_AI_PROJECT_ENDPOINT string = aiFoundry.outputs.projectEndpoint
+output FOUNDRY_PROJECT_ENDPOINT string = aiFoundry.outputs.projectEndpoint
 output BACKEND_CONTAINER_APP_NAME string = backend.outputs.name
 output FRONTEND_CONTAINER_APP_NAME string = frontend.outputs.name
 output AZURE_OPENAI_DEPLOYMENT_NAME string = azureOpenAIDeploymentName

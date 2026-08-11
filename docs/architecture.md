@@ -81,7 +81,7 @@ prior-auth-maf/
 │
 ├── frontend/              # Next.js UI
 ├── scripts/               # Post-provision helpers
-│   ├── grant_agent_rbac.py # postdeploy hook — grants Azure AI User on the Foundry account scope to each per-agent instance identity
+│   ├── grant_agent_rbac.py # postdeploy hook — grants Foundry User on the Foundry account scope to each per-agent instance identity
 │   └── check_agents.py    # Pre-flight health check — agents, App Insights, backend, frontend
 ├── docs/                  # Architecture, deployment guide, API reference
 ├── infra/                 # Bicep / azd infrastructure
@@ -436,7 +436,9 @@ SKILL.md files live alongside each agent container and are loaded at startup via
 
 ```python
 skills_provider = SkillsProvider.from_paths(
-    str(Path(__file__).parent / "skills")
+    str(Path(__file__).parent / "skills"),
+    disable_load_skill_approval=True,
+    disable_read_skill_resource_approval=True,
 )
 ```
 
@@ -446,6 +448,10 @@ skills_provider = SkillsProvider.from_paths(
 > `TypeError` at import time, which prevents the agent from binding to port
 > 8088 and causes Foundry to return HTTP `424 session_not_ready` to every
 > backend call (see [troubleshooting.md](troubleshooting.md)).
+>
+> **Approval note:** skill tools default to `approval_mode="always_require"`.
+> The `disable_*_approval` arguments keep the read-only skill tools unattended;
+> without them each agent returns an `mcp_approval_request` instead of a result.
 
 ### Skills Overview
 
@@ -504,7 +510,7 @@ prior-auth-maf/
 │   └── app/, components/, lib/
 │
 ├── scripts/
-│   ├── grant_agent_rbac.py              # Postdeploy: grants Azure AI User on Foundry account scope to each per-agent instance identity
+│   ├── grant_agent_rbac.py              # Postdeploy: grants Foundry User on Foundry account scope to each per-agent instance identity
 │   └── check_agents.py                  # Pre-flight health check — agents, App Insights, backend, frontend
 ├── docs/                                 # Supporting documentation
 ├── infra/                                # Azure Bicep IaC modules

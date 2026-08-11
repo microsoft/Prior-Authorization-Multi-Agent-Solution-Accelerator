@@ -9,15 +9,19 @@
 //    Allows Foundry Agent Service to pull the 4 agent container images from
 //    ACR when provisioning Foundry Hosted Agent deployments.
 //
-// Note: The deployer's Azure AI User and Azure AI Project Manager roles
+// Note: The deployer's Foundry User and Foundry Project Manager roles
 // (needed to register and deploy hosted agents) are assigned via
 // `az role assignment create` in the postprovision hook instead of Bicep,
 // because `az role assignment create` is idempotent and avoids
 // RoleAssignmentExists conflicts when the role was previously granted manually.
 // Project Manager is required by the refreshed Hosted Agents preview
-// (Apr 2026) for the create_version() data action; Azure AI User alone is
+// (Apr 2026) for the create_version() data action; Foundry User alone is
 // not sufficient. See:
 // https://learn.microsoft.com/azure/foundry/agents/how-to/deploy-hosted-agent#required-permissions
+//
+// Roles are referenced by role definition ID throughout: the built-in roles
+// were renamed (Azure AI User -> Foundry User, Azure AI Project Manager ->
+// Foundry Project Manager) and display-name lookups break across the rename.
 // ---------------------------------------------------------------------------
 
 @description('Name of the existing Foundry (CognitiveServices) account')
@@ -44,7 +48,7 @@ var cognitiveServicesOpenAIUserRoleId = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
 // Cognitive Services OpenAI Contributor — allows hosted agents to call models
 var cognitiveServicesOpenAIContributorRoleId = 'a001fd3d-188f-4b5d-821b-7da978bf7442'
 
-// Azure AI User — allows hosted agents to use Foundry Agent Service data actions
+// Foundry User (formerly Azure AI User) — allows hosted agents to use Foundry Agent Service data actions
 var azureAIUserRoleId = '53ca6127-db72-4b80-b1b0-d745d6d5456d'
 
 // AcrPull — allows pulling container images from Azure Container Registry
@@ -92,7 +96,7 @@ resource foundryProjectOpenAIContributorRoleAssignment 'Microsoft.Authorization/
   }
 }
 
-// 4. Foundry project identity → Azure AI User on Foundry account
+// 4. Foundry project identity → Foundry User on Foundry account
 //    Allows hosted agent containers to use Foundry Agent Service data actions
 resource foundryProjectAIUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(foundryAccount.id, foundryProjectPrincipalId, azureAIUserRoleId)

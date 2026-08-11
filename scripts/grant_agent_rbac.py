@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grant Azure AI User to each Hosted Agent's instance identity.
+"""Grant Foundry User to each Hosted Agent's instance identity.
 
 The `azd ai agent` extension provisions per-agent `instance_identity` and
 `blueprint` Application identities at `create_version` time (preview April
@@ -15,9 +15,9 @@ Without this grant, every POST /responses returns:
 This script:
   1. Reads the project endpoint + Foundry account scope from `azd env`.
   2. Lists the latest version of each hosted agent declared in azure.yaml.
-  3. Grants `Azure AI User` on the Foundry account scope to each
-     `instance_identity.principal_id` (idempotent — `az role assignment
-     create` returns success if the assignment already exists).
+  3. Grants `Foundry User` (formerly `Azure AI User`) on the Foundry account
+     scope to each `instance_identity.principal_id` (idempotent — `az role
+     assignment create` returns success if the assignment already exists).
 
 Run automatically from the `postdeploy` hook in azure.yaml. Safe to re-run
 manually:  python scripts/grant_agent_rbac.py
@@ -41,7 +41,9 @@ HOSTED_AGENTS: tuple[str, ...] = (
 
 # Data-plane role that includes Microsoft.CognitiveServices/accounts/AIServices/agents/*
 # read + invoke. Project Manager is NOT needed for runtime — only for create_version().
-ROLE_NAME = "Azure AI User"
+# Referenced by role definition ID because the display name was renamed from
+# "Azure AI User" to "Foundry User" and `az --role <name>` fails on updated tenants.
+ROLE_ID = "53ca6127-db72-4b80-b1b0-d745d6d5456d"
 
 # Latest stable api-version exposing instance_identity.principal_id.
 AGENT_API_VERSION = "2025-11-15-preview"
@@ -160,7 +162,7 @@ def main(agents: Iterable[str] = HOSTED_AGENTS) -> int:
         if not principal_id:
             print(f"  - {agent:30s}  v{version.get('version')}  (no instance identity, skipped)")
             continue
-        is_new = _grant_role(principal_id, account_scope, ROLE_NAME)
+        is_new = _grant_role(principal_id, account_scope, ROLE_ID)
         status = "granted" if is_new else "ok"
         granted += int(is_new)
         print(f"  - {agent:30s}  v{version.get('version'):<3}  {status}")

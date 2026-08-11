@@ -48,8 +48,8 @@ def _get_openai_client(foundry_agent_name: str) -> Any:
         from azure.identity import DefaultAzureCredential
     except ImportError:
         raise RuntimeError(
-            "azure-ai-projects>=2.1.0 and azure-identity are required for Foundry "
-            "Hosted Agents mode. Install with: pip install 'azure-ai-projects>=2.1.0' "
+            "azure-ai-projects>=2.4.0 and azure-identity are required for Foundry "
+            "Hosted Agents mode. Install with: pip install 'azure-ai-projects>=2.4.0' "
             "azure-identity"
         )
 

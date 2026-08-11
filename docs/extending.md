@@ -47,7 +47,12 @@ def main() -> None:
     # agents/clinical/main.py for a working example.
 
     skills_provider = SkillsProvider.from_paths(
-        str(Path(__file__).parent / "skills")
+        str(Path(__file__).parent / "skills"),
+        # Required for unattended use: skill tools default to
+        # approval_mode="always_require", which makes the agent stop on an
+        # mcp_approval_request instead of returning a result.
+        disable_load_skill_approval=True,
+        disable_read_skill_resource_approval=True,
     )
 
     project_endpoint = os.environ.get(
@@ -247,8 +252,8 @@ Update `_build_audit_trail()`, `_generate_audit_justification()`, and
 | `agents/new-agent/main.py` | New file: Agent definition + `ResponsesHostServer` + in-container MCP tool wiring (read `MCP_*` env vars and instantiate `MCPStreamableHTTPTool`) |
 | `agents/new-agent/schemas.py` | New file: Pydantic output model (must match SKILL.md output format exactly — the framework enforces schema at token level) |
 | `agents/new-agent/skills/new-agent/SKILL.md` | New file: skill instructions |
-| `agents/new-agent/Dockerfile` | New file: container image |
-| `agents/new-agent/requirements.txt` | New file: `agent-framework-core>=1.2.0`, `agent-framework-foundry>=1.2.0`, `agent-framework-foundry-hosting>=1.0.0a260424`, `azure-ai-agentserver-core>=2.0.0b3`, `azure-ai-projects>=2.1.0`, `azure-identity`, `python-dotenv`, `httpx`, `mcp>=1.0.0` (the last two are required for in-container `MCPStreamableHTTPTool`) |
+| `agents/new-agent/Dockerfile` | New file: container image. Copy an existing agent's Dockerfile verbatim — it must run as **root** (Foundry mounts the per-session state volume at `$HOME=/home/session` as root; a non-root UID cannot create `$HOME/.sessions` and the container dies before `/readiness` binds). |
+| `agents/new-agent/requirements.txt` | New file: `agent-framework-core>=1.13.0,<2`, `agent-framework-foundry>=1.10.4,<2`, `agent-framework-foundry-hosting>=1.0.0b260730,<2`, `azure-ai-agentserver-core>=2.0.0,<3`, `azure-identity`, `python-dotenv`, `httpx`, `mcp>=1.24.0,<2` (the last two are required for in-container `MCPStreamableHTTPTool`) |
 | `docker-compose.yml` | Add new agent service + env vars |
 | `agents/new-agent/agent.yaml` | New file: hosted agent descriptor consumed by the `azd ai agent` extension during `azd deploy`. Declares kind, image, cpu, memory, `container_protocol_versions`, and `env_vars` (including `MCP_*` URLs). |
 | `azure.yaml` | The `azd ai agent` extension auto-discovers agents under `agents/` — no manual entry needed. |

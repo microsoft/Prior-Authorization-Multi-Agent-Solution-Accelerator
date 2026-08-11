@@ -29,9 +29,17 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 > | AcrPull | Backend + Frontend Container App managed identities | Container Registry | `role-assignments.bicep` | Lets Container Apps pull images from ACR via MI (admin user is disabled) |
 > | AcrPull | Foundry project managed identity | Container Registry | `role-assignments.bicep` | Lets Foundry pull the 4 agent images when provisioning Hosted Agents |
 > | Cognitive Services OpenAI Contributor | Foundry project managed identity | Foundry account | `role-assignments.bicep` | Lets hosted agent containers call gpt-5.4 via the Responses API |
-> | Azure AI User | Foundry project managed identity | Foundry account | `role-assignments.bicep` | Lets hosted agent containers use Foundry Agent Service data actions |
-> | Azure AI User | Deployer (you, running `azd up`) | Foundry project | postprovision hook (`az role assignment create`) | Lets the `azd ai agent` extension call `client.agents.create_version()` against the Foundry Agent Service API |
-> | Azure AI User | Per-agent instance identities (one Application identity per hosted agent, created by `azd ai agent`) | Foundry account | postdeploy hook (`scripts/grant_agent_rbac.py`) | Lets each hosted agent container call gpt-5.4 via the Responses API. ~60s RBAC propagation on first run is normal. |
+> | Foundry User | Foundry project managed identity | Foundry account | `role-assignments.bicep` | Lets hosted agent containers use Foundry Agent Service data actions |
+> | Foundry User | Deployer (you, running `azd up`) | Foundry project | postprovision hook (`az role assignment create`) | Lets the `azd ai agent` extension call `client.agents.create_version()` against the Foundry Agent Service API |
+> | Foundry Project Manager | Deployer (you, running `azd up`) | Foundry project | postprovision hook (`az role assignment create`) | Lets the `azd ai agent` extension write new hosted agent versions (`create_version()` needs more than `Foundry User`) |
+> | Foundry User | Per-agent instance identities (one Application identity per hosted agent, created by `azd ai agent`) | Foundry account | postdeploy hook (`scripts/grant_agent_rbac.py`) | Lets each hosted agent container call gpt-5.4 via the Responses API. ~60s RBAC propagation on first run is normal. |
+>
+> **Role naming:** `Foundry User` and `Foundry Project Manager` were previously
+> named `Azure AI User` and `Azure AI Project Manager`. Depending on how recently
+> your tenant picked up the rename, the portal may still show either name. The
+> Bicep module and the postprovision hook both reference these roles by **role
+> definition ID** (`53ca6127-db72-4b80-b1b0-d745d6d5456d` and
+> `eadc314b-1a2d-4efa-be10-5d325db5065e`), so deployment is unaffected either way.
 
 **🔍 How to Check Your Permissions:**
 
@@ -338,7 +346,7 @@ azd up
 
 > **Note:** Container images are built remotely on Azure Container Registry, so no local Docker installation is required for deployment. This works on any machine architecture (x86, ARM64) and any OS.
 
-**Expected Duration:** ~10 minutes for initial provisioning + deployment. On the very first run, agent registration may take an extra 1–2 minutes while Azure RBAC propagates the newly assigned Azure AI User role (you'll see "Waiting for RBAC propagation" messages — this is normal). Subsequent runs skip this wait.
+**Expected Duration:** ~10 minutes for initial provisioning + deployment. On the very first run, agent registration may take an extra 1–2 minutes while Azure RBAC propagates the newly assigned Foundry User role (you'll see "Waiting for RBAC propagation" messages — this is normal). Subsequent runs skip this wait.
 
 **⚠️ Deployment Issues:** If you encounter errors or timeouts, check the [Troubleshooting Guide](./troubleshooting.md) for detailed error solutions.
 
@@ -353,7 +361,7 @@ azd up
 | Container images (backend + 4 agents + frontend) | ACR remote build | ✅ Built & pushed |
 | Container Apps | Bicep | ✅ Running |
 | Foundry Hosted Agents registered | `azd ai agent` extension (auto-invoked by `azd deploy`) | ✅ Registered |
-| Per-agent RBAC (Azure AI User on Foundry account) | `scripts/grant_agent_rbac.py` postdeploy hook | ✅ Granted |
+| Per-agent RBAC (Foundry User on Foundry account) | `scripts/grant_agent_rbac.py` postdeploy hook | ✅ Granted |
 | App Insights linked to Foundry project | Bicep connection resource | ✅ Linked |
 | Pre-flight health check | `scripts/check_agents.py` postprovision hook | ✅ All checks passed |
 
@@ -633,7 +641,7 @@ The level of trace detail visible in Foundry depends on upstream framework relea
 | **Agent-level traces** | Available now (rc3+) | `invoke_agent` spans with agent name, duration, response capture, exception tracking |
 | **Tool-level traces** | Available now with MAF native agents | Individual MCP tool call spans (e.g., `npi_lookup`, `validate_code`) as child spans via `gen_ai.*` semantic conventions |
 
-The Microsoft Agent Framework's `ResponsesHostServer` emits W3C-compliant trace context and standard `gen_ai.*` OTel spans natively — this resolves the black-box tracing limitation of the previous Claude SDK subprocess approach. Agent dependency versions are already pinned in each `agents/*/requirements.txt` (`agent-framework-core>=1.2.0`, `agent-framework-foundry>=1.2.0`, `agent-framework-foundry-hosting>=1.0.0a260424`, `azure-ai-agentserver-core>=2.0.0b3`, `azure-ai-projects>=2.1.0`). To pick up newer trace capabilities, update those pins and rebuild.
+The Microsoft Agent Framework's `ResponsesHostServer` emits W3C-compliant trace context and standard `gen_ai.*` OTel spans natively — this resolves the black-box tracing limitation of the previous Claude SDK subprocess approach. Agent dependency versions are already pinned in each `agents/*/requirements.txt` (`agent-framework-core>=1.13.0,<2`, `agent-framework-foundry>=1.10.4,<2`, `agent-framework-foundry-hosting>=1.0.0b260730,<2`, `azure-ai-agentserver-core>=2.0.0,<3`). To pick up newer trace capabilities, update those pins and rebuild.
 
 📖 **Learn More:**
 - [Register a custom agent in Foundry Control Plane](https://learn.microsoft.com/en-us/azure/foundry/control-plane/register-custom-agent)

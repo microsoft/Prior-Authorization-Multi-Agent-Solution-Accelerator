@@ -30,7 +30,7 @@ with **Microsoft Foundry** by `azd deploy` itself — each agent has a
 `host: azure.ai.agent` entry in the repo-root `azure.yaml` that the
 `azd ai agent` extension uses to ACR-build the image, push it, and call
 `create_version()` on the project. A `postdeploy` hook
-(`scripts/grant_agent_rbac.py`) then grants `Azure AI User` to each agent's
+(`scripts/grant_agent_rbac.py`) then grants `Foundry User` to each agent's
 per-instance Application identity so it can serve the Responses API.
 
 ---
@@ -73,7 +73,9 @@ Each agent loads its SKILL.md via `SkillsProvider`:
 
 ```python
 skills_provider = SkillsProvider.from_paths(
-    str(Path(__file__).parent / "skills")
+    str(Path(__file__).parent / "skills"),
+    disable_load_skill_approval=True,
+    disable_read_skill_resource_approval=True,
 )
 ```
 
@@ -81,6 +83,13 @@ skills_provider = SkillsProvider.from_paths(
 > `SkillsProvider(skill_paths=...)` (initial preview) to the
 > `SkillsProvider.from_paths(...)` factory — the old form raises `TypeError`
 > at import time and surfaces as HTTP `424 session_not_ready`.
+>
+> The `disable_*_approval` arguments are required for unattended server-side
+> use. `agent-framework-core` registers skill tools with
+> `approval_mode="always_require"` by default, so without them the agent emits
+> an `mcp_approval_request` and stops instead of returning a result — the
+> backend then reports `Agent <name> returned empty output`. `run_skill_script`
+> deliberately still requires approval; none of these skills ship a script.
 
 SKILL.md files live alongside the agent:
 
@@ -418,6 +427,13 @@ Token acquisition uses `azure.identity.aio.DefaultAzureCredential` — no manual
 
 The following RBAC roles are automatically assigned during `azd up`:
 
+> **Role naming:** Azure renamed two built-in roles — `Azure AI User` is now
+> **`Foundry User`** (`53ca6127-db72-4b80-b1b0-d745d6d5456d`) and
+> `Azure AI Project Manager` is now **`Foundry Project Manager`**
+> (`eadc314b-1a2d-4efa-be10-5d325db5065e`). Both the Bicep module and the
+> postprovision hook reference these roles by **role definition ID**, so the
+> deployment works regardless of which display name your tenant shows.
+
 | **Role** | **Principal** | **Scope** | **How Assigned** | **Purpose** |
 |----------|---------------|-----------|------------------|-------------|
 | Cognitive Services OpenAI User | Backend Container App managed identity | Foundry account | `role-assignments.bicep` (provision) | Orchestrator calls each agent's dedicated Foundry endpoint via `get_openai_client(agent_name=...)` |
@@ -425,13 +441,13 @@ The following RBAC roles are automatically assigned during `azd up`:
 | AcrPull | Frontend Container App managed identity | Container Registry | `role-assignments.bicep` (provision) | Container Apps pulls the frontend image from ACR via system-assigned MI |
 | AcrPull | Foundry project managed identity | Container Registry | `role-assignments.bicep` (provision) | Foundry Agent Service pulls agent container images from ACR |
 | Cognitive Services OpenAI Contributor | Foundry project managed identity | Foundry account | `role-assignments.bicep` (provision) | Hosted agent containers call gpt-5.4 via the Responses API |
-| Azure AI User | Foundry project managed identity | Foundry account | `role-assignments.bicep` (provision) | Hosted agent containers use Foundry Agent Service data actions |
-| Azure AI User | Deployer (user running `azd up`) | Foundry project | `az role assignment create` (postprovision hook) | The `azd ai agent` extension invokes the Foundry Agent Service API on behalf of the deployer |
-| **Azure AI Project Manager** | **Deployer (user running `azd up`)** | **Foundry project** | **`az role assignment create` (postprovision hook)** | **Required by the refreshed Hosted Agents preview to call `create_version()` on `HostedAgentDefinition` / `PromptAgentDefinition` — `Azure AI User` only covers invoking an existing agent. See the [official permissions reference](https://learn.microsoft.com/azure/foundry/agents/how-to/deploy-hosted-agent#required-permissions).** |
-| Azure AI User | Backend Container App managed identity | Foundry project | `az role assignment create` (postprovision hook) | Backend calls Foundry Hosted Agents at runtime via `DefaultAzureCredential` |
-| Azure AI User | Per-agent Entra identity (`agent.instance_identity.principal_id`) | Foundry account | `scripts/grant_agent_rbac.py` (postdeploy hook) | Each refreshed-preview hosted agent uses its own dedicated Entra identity to call the Responses API; the `azd ai agent` extension provisions the identity but does not grant data-plane RBAC |
+| Foundry User (formerly Azure AI User) | Foundry project managed identity | Foundry account | `role-assignments.bicep` (provision) | Hosted agent containers use Foundry Agent Service data actions |
+| Foundry User (formerly Azure AI User) | Deployer (user running `azd up`) | Foundry project | `az role assignment create` (postprovision hook) | The `azd ai agent` extension invokes the Foundry Agent Service API on behalf of the deployer |
+| **Foundry Project Manager (formerly Azure AI Project Manager)** | **Deployer (user running `azd up`)** | **Foundry project** | **`az role assignment create` (postprovision hook)** | **Required by the refreshed Hosted Agents preview to call `create_version()` on `HostedAgentDefinition` / `PromptAgentDefinition` — `Foundry User` only covers invoking an existing agent. See the [official permissions reference](https://learn.microsoft.com/azure/foundry/agents/how-to/deploy-hosted-agent#required-permissions).** |
+| Foundry User (formerly Azure AI User) | Backend Container App managed identity | Foundry project | `az role assignment create` (postprovision hook) | Backend calls Foundry Hosted Agents at runtime via `DefaultAzureCredential` |
+| Foundry User (formerly Azure AI User) | Per-agent Entra identity (`agent.instance_identity.principal_id`) | Foundry account | `scripts/grant_agent_rbac.py` (postdeploy hook) | Each refreshed-preview hosted agent uses its own dedicated Entra identity to call the Responses API; the `azd ai agent` extension provisions the identity but does not grant data-plane RBAC |
 
-The first six roles are assigned by `infra/modules/role-assignments.bicep` during `azd provision`. The remaining roles — including the deployer's **Azure AI Project Manager** grant — are assigned via `az role assignment create` in the postprovision hook. This is intentionally outside Bicep because the CLI command is natively idempotent (no error if the role was previously granted manually).
+The first six roles are assigned by `infra/modules/role-assignments.bicep` during `azd provision`. The remaining roles — including the deployer's **Foundry Project Manager** grant — are assigned via `az role assignment create` in the postprovision hook. This is intentionally outside Bicep because the CLI command is natively idempotent (no error if the role was previously granted manually).
 
 > **First-run note:** Azure RBAC propagation can take up to ~60 seconds after a new role assignment. The `postdeploy` hook (`scripts/grant_agent_rbac.py`) prints a NOTE if it just created any new role assignments — if the very first agent invocation after `azd up` returns `PermissionDenied`, wait one minute and retry. On subsequent deploys the roles already exist and no waiting is needed.
 
@@ -450,17 +466,51 @@ extension:
    Docker daemon required — same flow as `az acr build`).
 2. Pushes the image to the ACR connection on the Foundry project.
 3. Calls `client.agents.create_version()` with the new image, requested
-   cpu/memory, and the `responses 1.0.0` protocol binding.
+   cpu/memory, and the `responses 2.0.0` protocol binding.
 4. Provisions the per-agent `instance_identity` and `blueprint` Application
    identities and grants `AcrPull` on the registry.
 5. Polls until `status == active` (typically 2–5 minutes per agent).
 
-A `postdeploy` hook (`scripts/grant_agent_rbac.py`) then grants `Azure AI
+A `postdeploy` hook (`scripts/grant_agent_rbac.py`) then grants `Foundry
 User` on the Foundry account scope to each agent's `instance_identity`
 — this is the data-plane role required to serve the Responses API and is
 not granted by the extension automatically (the gap that produced the
 early preview's persistent `424 session_not_ready` and `PermissionDenied`
 errors).
+
+### azd environment variables consumed by the extension
+
+The extension resolves the target project from the **azd environment** (not
+from the container environment), and it looks up one exact name:
+
+| Variable | Set by | Purpose |
+|----------|--------|---------|
+| `FOUNDRY_PROJECT_ENDPOINT` | `infra/main.bicep` output + `azd env set` in the postprovision hook | The only name the `azd ai agent` extension reads when resolving the project for `create_version()`. Missing → `ERROR: FOUNDRY_PROJECT_ENDPOINT is required` at the Publishing step. |
+| `AZURE_TENANT_ID` | `azd env set` in the postprovision hook | Lets the extension's own postdeploy hook build Foundry playground links without prompting. |
+
+`AI_FOUNDRY_PROJECT_ENDPOINT` and `AZURE_AI_PROJECT_ENDPOINT` hold the same
+value but are consumed by this repo's hooks, the backend container, and the
+`agents/*/agent.yaml` files — the extension does not read either alias. The
+value is written from two places on purpose: the Bicep output covers normal
+provisioning, and the postprovision `azd env set` covers the case where azd
+skips provisioning because the infrastructure is unchanged.
+
+### Container runtime constraints
+
+Two constraints are imposed by the hosting runtime rather than by this repo:
+
+- **Agent containers run as root.** Foundry injects `HOME=/home/session` and
+  mounts the per-session state volume there as root. `ResponsesHostServer`
+  creates `$HOME/.sessions` during `__init__`, so a non-root `USER` gets
+  `EACCES` and the process exits before `/readiness` binds — reported to callers
+  as HTTP `424 session_not_ready`. Creating and `chown`-ing the directory in the
+  image does not help; the runtime mount replaces it. The backend and frontend
+  images are unaffected and still drop to a non-root user.
+- **Responses protocol 2.0.0 is mandatory.** `agent-framework-foundry-hosting`
+  `1.0.0b260730`+ rejects protocol 1.0.0 at request time with
+  `RuntimeError: The hosted environment is running on protocol 1.0.0, but the
+  agent requires protocol 2.0.0`. Every `agents/*/agent.yaml` declares
+  `version: "2.0.0"`.
 
 Resource specs are declared per agent in `agents/<name>/agent.yaml`:
 

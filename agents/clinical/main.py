@@ -130,8 +130,15 @@ def main() -> None:
     # to the `SkillsProvider.from_paths(...)` factory. Using the old kwarg form
     # crashes the agent on import — /readiness never returns 200, so Foundry
     # raises HTTP 424 session_not_ready.
+    # agent-framework-core registers skill tools with approval_mode
+    # "always_require" by default, which makes the agent emit an
+    # mcp_approval_request and stop instead of returning a result. These skills
+    # are first-party files baked into the image, so opt the read-only tools out
+    # (run_skill_script still requires approval; no skill here ships a script).
     skills_provider = SkillsProvider.from_paths(
-        str(Path(__file__).parent / "skills")
+        str(Path(__file__).parent / "skills"),
+        disable_load_skill_approval=True,
+        disable_read_skill_resource_approval=True,
     )
 
     # --- Foundry chat client + Agent (refreshed preview) ---

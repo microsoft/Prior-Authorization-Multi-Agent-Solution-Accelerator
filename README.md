@@ -74,7 +74,7 @@ This solution uses a **stateless dispatcher** pattern: the FastAPI backend has n
 ### Security
 
 - **Keyless by design** — all Azure resource access uses `DefaultAzureCredential`; no API keys or connection strings are stored anywhere
-- **Managed Identity** — each Container App has a system-assigned managed identity with least-privilege Bicep-assigned role assignments (`CognitiveServicesOpenAIUser`, `Azure AI User`); the deployer additionally receives `Azure AI Project Manager` (project scope) so the `azd ai agent` extension can call `create_version()` on Hosted Agent definitions, and a `postdeploy` hook grants `Azure AI User` to each agent's per-instance Application identity provisioned by the extension
+- **Managed Identity** — each Container App has a system-assigned managed identity with least-privilege Bicep-assigned role assignments (`CognitiveServicesOpenAIUser`, `Foundry User`); the deployer additionally receives `Foundry Project Manager` (project scope) so the `azd ai agent` extension can call `create_version()` on Hosted Agent definitions, and a `postdeploy` hook grants `Foundry User` to each agent's per-instance Application identity provisioned by the extension. `Foundry User` / `Foundry Project Manager` were previously named `Azure AI User` / `Azure AI Project Manager`; all assignments reference the role definition IDs, so either display name works
 - **Local auth disabled** — the Azure AI Foundry account has `disableLocalAuth: true`, enforcing Entra ID-only access
 - See [Security guidelines](#security-guidelines) below for additional hardening recommendations for production deployments handling PHI
 
@@ -151,7 +151,7 @@ The orchestrator coordinates four phases with four specialized agents:
   - The FastAPI backend is a **pure HTTP dispatcher** — it has no local AI runtime; all specialist reasoning runs in the four independent agent containers
   - Each agent container exposes `POST /responses` (Foundry Responses API protocol) and is independently versioned, deployable, and scalable
   - `hosted_agents.py` is a **two-mode dispatcher**: direct HTTP to agent containers (Docker Compose), or per-agent dedicated Foundry endpoints via `AIProjectClient(allow_preview=True).get_openai_client(agent_name=...)` with `DefaultAzureCredential` (Foundry Hosted Agents)
-  - Agents are built and registered with Foundry by `azd deploy` itself — each agent has a `host: azure.ai.agent` entry in `azure.yaml` that the `azd ai agent` extension uses to ACR-build the image, push it, call `create_version()`, and provision the per-agent runtime + blueprint identities. A `postdeploy` hook (`scripts/grant_agent_rbac.py`) then grants `Azure AI User` to each runtime identity so the agents can call the Responses API. Foundry manages the ACA container lifecycle; no self-managed ACA modules in Bicep
+  - Agents are built and registered with Foundry by `azd deploy` itself — each agent has a `host: azure.ai.agent` entry in `azure.yaml` that the `azd ai agent` extension uses to ACR-build the image, push it, call `create_version()`, and provision the per-agent runtime + blueprint identities. A `postdeploy` hook (`scripts/grant_agent_rbac.py`) then grants `Foundry User` to each runtime identity so the agents can call the Responses API. Foundry manages the ACA container lifecycle; no self-managed ACA modules in Bicep
   - `scripts/check_agents.py` runs automatically after registration to verify all agents, App Insights, backend, and frontend are healthy before the deployment completes
 </details>
 
@@ -385,10 +385,18 @@ This solution accelerator handles **Protected Health Information (PHI)** and cli
 
 | Environment | Credential used | How it's granted |
 |---|---|---|
-| Azure (production) | System-assigned [Managed Identity](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview) on each Container App; deployer user identity | Bicep role assignments at deploy time (`CognitiveServicesOpenAIUser` for backend, `CognitiveServicesOpenAIContributor` + `Azure AI User` for Foundry project MI, `Azure AI User` + `Azure AI Project Manager` for deployer) |
+| Azure (production) | System-assigned [Managed Identity](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/overview) on each Container App; deployer user identity | Bicep role assignments at deploy time (`CognitiveServicesOpenAIUser` for backend, `CognitiveServicesOpenAIContributor` + `Foundry User` for Foundry project MI, `Foundry User` + `Foundry Project Manager` for deployer) |
 | Local / Codespaces | Azure Developer CLI token (`azd auth login`) or Azure CLI token (`az login`) | Developer's own authenticated session |
 
 Because there are no API keys, there is nothing to rotate, leak, or accidentally commit. To ensure continued best practices in your own repository, we recommend enabling [GitHub secret scanning](https://docs.github.com/code-security/secret-scanning/about-secret-scanning) to catch any credentials that might be inadvertently introduced.
+
+> **Agent containers run as root.** The backend and frontend images drop to a
+> non-root user, but the four hosted agent images cannot: Foundry injects
+> `HOME=/home/session` and mounts the per-session state volume there as root,
+> and `ResponsesHostServer` creates `$HOME/.sessions` at startup. A non-root UID
+> gets `EACCES` and the container exits before `/readiness` binds, which surfaces
+> as HTTP `424 session_not_ready`. Each agent still runs with its own dedicated
+> Entra identity holding only the `Foundry User` data-plane role.
 
 You may want to consider additional security measures, such as:
 
