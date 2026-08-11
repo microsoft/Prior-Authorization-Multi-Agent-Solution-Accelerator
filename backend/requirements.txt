@@ -8,4 +8,4 @@ fpdf2>=2.8.0,<3
 azure-monitor-opentelemetry>=1.6.0,<2
 azure-identity>=1.16.0,<2
 azure-ai-projects>=2.4.0,<3
-pytest>=8.0.0,<9
+pytest>=9.0.3,<10
