@@ -16,6 +16,8 @@ updates:
       all-actions:
         patterns:
           - "*"
+    cooldown:
+      default-days: 7
 
   # Python pip dependencies (backend)
   - package-ecosystem: "pip"
