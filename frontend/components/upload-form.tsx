@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UploadFormProps {
   onReviewComplete: (review: ReviewResponse) => void;
+  onClear: () => void;
 }
 
 const emptyRequest: PriorAuthRequest = {
@@ -28,7 +29,7 @@ const emptyRequest: PriorAuthRequest = {
   insurance_id: "",
 };
 
-export function UploadForm({ onReviewComplete }: UploadFormProps) {
+export function UploadForm({ onReviewComplete, onClear }: UploadFormProps) {
   const [form, setForm] = useState<PriorAuthRequest>(emptyRequest);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +105,17 @@ export function UploadForm({ onReviewComplete }: UploadFormProps) {
     setError(null);
   }
 
+  function clearForm() {
+    if (loading) return;
+
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setForm(emptyRequest);
+    setError(null);
+    setProgress(null);
+    onClear();
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -162,7 +174,7 @@ export function UploadForm({ onReviewComplete }: UploadFormProps) {
 
   return (
     <Card className="shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardHeader className="flex flex-col items-start justify-between gap-3 pb-2 sm:flex-row sm:items-center">
         <div>
           <CardTitle className="text-lg flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
@@ -172,10 +184,15 @@ export function UploadForm({ onReviewComplete }: UploadFormProps) {
             Enter patient and procedure details for AI-assisted clinical review
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={loadSample}>
-          <FlaskConical className="mr-1 h-3.5 w-3.5" />
-          Load Sample Case
-        </Button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={loadSample}>
+            <FlaskConical className="mr-1 h-3.5 w-3.5" />
+            Load Sample Case
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={clearForm} disabled={loading}>
+            Clear form
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent>
