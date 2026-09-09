@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import type { ReviewResponse, DecisionResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
   Info,
   Download,
   FileText,
+  Copy,
 } from "lucide-react";
 
 interface ReviewDashboardProps {
@@ -49,12 +51,27 @@ export function ReviewDashboard({ review: rawReview }: ReviewDashboardProps) {
 
   // Track the audit PDF — updated when a decision (especially an override) returns a new one
   const [auditPdf, setAuditPdf] = useState<string | undefined>(review.audit_justification_pdf);
+  const [isCopyingSummary, setIsCopyingSummary] = useState(false);
 
   const handleDecision = useCallback((decision: DecisionResponse) => {
     if (decision.updated_audit_justification_pdf) {
       setAuditPdf(decision.updated_audit_justification_pdf);
     }
   }, []);
+
+  async function handleCopySummary() {
+    if (isCopyingSummary || !review.summary.trim()) return;
+
+    setIsCopyingSummary(true);
+    try {
+      await navigator.clipboard.writeText(review.summary);
+      toast.success("Summary copied to clipboard.");
+    } catch {
+      toast.error("Couldn't copy summary. Select and copy the text manually.");
+    } finally {
+      setIsCopyingSummary(false);
+    }
+  }
 
   function handleDownloadJustification() {
     if (auditPdf) {
@@ -111,7 +128,19 @@ export function ReviewDashboard({ review: rawReview }: ReviewDashboardProps) {
           </div>
 
           <div>
-            <p className="text-sm font-medium mb-1">Summary</p>
+            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">Summary</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCopySummary}
+                disabled={isCopyingSummary || !review.summary.trim()}
+              >
+                <Copy className="h-4 w-4" aria-hidden="true" />
+                Copy summary
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground">{review.summary}</p>
           </div>
         </CardContent>
